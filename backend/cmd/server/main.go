@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/uaad/backend/internal/config"
 	"github.com/uaad/backend/internal/domain"
 	"github.com/uaad/backend/internal/handler"
 	"github.com/uaad/backend/internal/middleware"
@@ -20,12 +20,10 @@ import (
 
 func main() {
 	// ── Configuration ───────────────────────────────────────────────
-	jwtSecret := getEnv("JWT_SECRET", "uaad-super-secret-key-2026")
-	dbPath := getEnv("DB_PATH", "uaad.db")
-	port := getEnv("PORT", "8080")
+	cfg := config.Load()
 
 	// ── Database ────────────────────────────────────────────────────
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
@@ -45,7 +43,7 @@ func main() {
 
 	// ── Dependency Injection ────────────────────────────────────────
 	userRepo := repository.NewUserRepository(db)
-	authSvc := service.NewAuthService(userRepo, jwtSecret)
+	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
 	authHandler := handler.NewAuthHandler(authSvc)
 
 	// Rate limiter: 5 registration requests per minute
@@ -72,7 +70,7 @@ func main() {
 		}
 
 		// Protected routes (require JWT authentication)
-		protected := v1.Group("", middleware.JWTAuth(jwtSecret))
+		protected := v1.Group("", middleware.JWTAuth(cfg.JWTSecret))
 		{
 			protected.GET("/auth/profile", authHandler.GetCurrentUser)
 		}
@@ -83,15 +81,8 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	log.Printf("Server starting on %s", port)
-	if err := r.Run(":" + port); err != nil {
+	log.Printf("Server starting on :%s", cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
-}
-
-func getEnv(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }
