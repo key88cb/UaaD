@@ -23,7 +23,6 @@
 
 | 文件 | 说明 |
 |------|------|
-| `task_list.md` | Alpha 阶段任务工单清单（Issue 录入用） |
 | `CONTRIBUTING.md` | 贡献指南 — 分支/commit 格式、AI 协作原则、技术栈速览 |
 
 ---
