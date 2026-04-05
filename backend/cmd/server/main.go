@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -59,18 +60,21 @@ func main() {
 	orderRepo := repository.NewOrderRepository(db)
 	notifRepo := repository.NewNotificationRepository(db)
 	behaviorRepo := repository.NewBehaviorRepository(db)
+	recommendRepo := repository.NewRecommendationRepository(db)
 
 	activitySvc := service.NewActivityService(activityRepo)
 	notifSvc := service.NewNotificationService(notifRepo)
 	enrollmentSvc := service.NewEnrollmentService(db, enrollmentRepo, activityRepo, orderRepo)
 	orderSvc := service.NewOrderService(orderRepo, activityRepo)
 	behaviorSvc := service.NewBehaviorService(behaviorRepo)
+	recommendSvc := service.NewRecommendationService(recommendRepo, cfg.Scoring, 5*time.Minute)
 
 	activityHandler := handler.NewActivityHandler(activitySvc)
 	enrollmentHandler := handler.NewEnrollmentHandler(enrollmentSvc)
 	orderHandler := handler.NewOrderHandler(orderSvc)
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	behaviorHandler := handler.NewBehaviorHandler(behaviorSvc, cfg)
+	recommendHandler := handler.NewRecommendationHandler(recommendSvc)
 
 	// Rate limiter: 5 registration requests per minute
 	regLimit := middleware.NewIPRateLimiter(rate.Limit(5.0/60.0), 5)
@@ -106,6 +110,7 @@ func main() {
 		handler.RegisterOrderRoutes(v1, orderHandler, cfg.JWTSecret)
 		handler.RegisterNotificationRoutes(v1, notifHandler, cfg.JWTSecret)
 		handler.RegisterBehaviorRoutes(v1, behaviorHandler, cfg.JWTSecret)
+		handler.RegisterRecommendationRoutes(v1, recommendHandler, cfg.JWTSecret)
 	}
 
 	// Health check
@@ -123,6 +128,25 @@ func main() {
 				log.Printf("[OrderExpiry] scan error: %v", err)
 			} else if closed > 0 {
 				log.Printf("[OrderExpiry] closed %d expired orders, stock rolled back", closed)
+			}
+		}
+	}()
+
+	// ── Recommendation Score Recalculation ──────────────────────────────
+	go func() {
+		if err := recommendSvc.RecalculateAllScores(context.Background()); err != nil {
+			log.Printf("[RecommendScore] initial recalc error: %v", err)
+		}
+
+		interval := time.Duration(cfg.ScoreRecalcIntervalMinutes) * time.Minute
+		if interval <= 0 {
+			interval = 30 * time.Minute
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := recommendSvc.RecalculateAllScores(context.Background()); err != nil {
+				log.Printf("[RecommendScore] periodic recalc error: %v", err)
 			}
 		}
 	}()

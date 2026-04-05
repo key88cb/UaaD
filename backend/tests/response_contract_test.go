@@ -169,3 +169,33 @@ func TestResponse_Conflict_Register(t *testing.T) {
 	}
 	assertErrEnvelope(t, body, 1005)
 }
+
+func TestResponse_RecommendationsHot_OK(t *testing.T) {
+	st, body := respGetJSON(respBaseURL+"/recommendations/hot?limit=3&offset=0", "")
+	if st != 200 {
+		t.Fatalf("HTTP %d %v", st, body)
+	}
+	if body["code"] != float64(0) {
+		t.Fatalf("code: %v", body["code"])
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("data: %T", body["data"])
+	}
+	if _, ok := data["list"]; !ok {
+		t.Fatalf("data.list missing: %v", data)
+	}
+}
+
+func TestResponse_Recommendations_OK(t *testing.T) {
+	st, body := respGetJSON(respBaseURL+"/recommendations?limit=3&offset=0", "")
+	if st != 200 {
+		t.Fatalf("HTTP %d %v", st, body)
+	}
+	if body["code"] != float64(0) {
+		t.Fatalf("code: %v", body["code"])
+	}
+	if _, ok := body["strategy"].(string); !ok {
+		t.Fatalf("strategy missing or invalid: %v", body["strategy"])
+	}
+}

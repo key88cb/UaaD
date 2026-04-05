@@ -83,6 +83,155 @@ go vet ./...    → exit 0
 
 ---
 
+# 推荐模块第一阶段：L1/L2 落地（热度推荐 + 冷启动兜底）
+
+**日期：** 2026-04-05  
+**范围：** 推荐接口 2 个（`/recommendations`、`/recommendations/hot`）+ 热度评分重算任务 + 服务层单元测试
+
+## 1. 文件变更清单
+
+| 操作 | 文件 | 说明 |
+|---|---|---|
+| 新增 | `internal/repository/recommendation_repository.go` | 推荐查询模型、偏好分类查询、分数 upsert、rank 更新 |
+| 新增 | `internal/service/recommendation_service.go` | 推荐策略分流（匿名/登录）、冷启动混排、5 分钟 TTL 缓存、L2 热度重算 |
+| 新增 | `internal/handler/recommendation_handler.go` | `GET /recommendations`、`GET /recommendations/hot` 处理器 |
+| 新增 | `internal/handler/recommendation_routes.go` | 推荐路由注册，采用 Optional JWT |
+| 修改 | `cmd/server/main.go` | DI 注入推荐模块、注册路由、启动评分重算定时任务 |
+| 新增 | `internal/service/recommendation_service_test.go` | 推荐服务单测（策略、缓存、重算） |
+| 修改 | `tests/response_contract_test.go` | 新增 `/recommendations/hot` 黑盒响应契约测试 |
+| 修改 | `task.md` | 新增 RE-L1-L2 任务与完成状态 |
+
+## 2. 关键实现说明
+
+### 2.1 接口与策略
+
+- `GET /api/v1/recommendations`
+  - 匿名用户：`strategy = hot_ranking`，返回热门 + 少量新上架兜底。
+  - 登录用户（有行为）：`strategy = cold_fill`，优先按用户偏好分类召回，再用热门补齐。
+  - 支持 `limit`、`offset`、`need_refresh=true`（绕过缓存）。
+
+- `GET /api/v1/recommendations/hot`
+  - 公开热门推荐接口，返回统一响应体中的 `list` 与 `total`。
+
+### 2.2 L2 热度评分引擎
+
+实现了文档约定的加权评分：
+
+$$
+score = w_v\cdot view\_score + w_e\cdot enroll\_score + w_s\cdot speed\_score - w_t\cdot time\_decay
+$$
+
+- 权重读取 `config.ScoringWeights`。
+- 启动时执行一次全量重算；之后按 `SCORE_RECALC_MINUTES` 周期重算。
+- 重算后刷新 `activity_scores.rank`，并清理推荐缓存。
+
+### 2.3 缓存策略
+
+- 当前采用进程内 TTL 缓存（5 分钟）键格式：`rec:{userID}:{limit}:{offset}`。
+- `need_refresh=true` 时强制跳过缓存。
+- 评分重算后统一清空缓存，避免旧分数长期驻留。
+
+> 说明：文档目标是 Redis 缓存；本阶段先落地进程内缓存以尽快交付 API，后续可平滑替换为 Redis。
+
+## 3. 测试与验证
+
+执行结果：
+
+```bash
+go test ./internal/service/... -count=1
+go test ./... -count=1
+```
+
+两条命令均通过，新增推荐服务单测与现有服务测试无回归失败。
+
+---
+
+# 推荐模块第二阶段：L3 协同过滤混排
+
+**日期：** 2026-04-05  
+**范围：** 协同过滤候选召回 + 混合推荐策略升级 + 单元测试扩展
+
+## 1. 文件变更清单
+
+| 操作 | 文件 | 说明 |
+|---|---|---|
+| 修改 | `internal/repository/recommendation_repository.go` | 新增用户交互活动提取与基于共现的相似活动 SQL 查询 |
+| 修改 | `internal/service/recommendation_service.go` | 增加 `collaborative_filtering` 分支（行为阈值 > 20），并混排 CF/Hot/Fresh |
+| 修改 | `internal/service/recommendation_service_test.go` | 扩展 stub 接口，新增 L3 策略分支测试 |
+| 修改 | `task.md` | 追加 RE-L3 任务与验证记录 |
+
+## 2. 关键实现说明
+
+### 2.1 协同过滤候选召回
+
+- 先从 `user_behaviors` 中提取当前用户最近交互过的活动集合（seed）。
+- 再通过共现 SQL 计算“与 seed 共同用户最多”的候选活动。
+- 对候选活动再关联 `activities` 与 `activity_scores`，保证只返回 `PUBLISHED` 且按相关性 + 热度排序。
+
+### 2.2 策略升级
+
+- 用户行为条数 `> 20`：启用 `strategy = collaborative_filtering`。
+- 用户行为条数 `1~20`：保持 `strategy = cold_fill`。
+- 用户无行为：保持 `strategy = hot_ranking`。
+
+### 2.3 混排逻辑
+
+- L3 路径中使用协同过滤候选作为主召回源，再由热门与新上架补齐。
+- 合并时按活动 ID 去重，确保列表无重复活动。
+- 当协同过滤缺少 seed 时自动回落到 `cold_fill`，避免空列表。
+
+## 3. 测试与验证
+
+执行结果：
+
+```bash
+go test ./internal/service/... -count=1
+go test ./... -count=1
+```
+
+两条命令均通过，L3 新增逻辑无编译错误且无全局回归。
+
+---
+
+# 推荐模块第三阶段：HTTP 测试与契约补强
+
+**日期：** 2026-04-05  
+**范围：** 推荐接口处理器测试 + 契约测试增强 + 全量回归验证
+
+## 1. 文件变更清单
+
+| 操作 | 文件 | 说明 |
+|---|---|---|
+| 新增 | `internal/handler/recommendation_handler_test.go` | 推荐接口 HTTP 层测试（参数、strategy、错误映射） |
+| 修改 | `tests/response_contract_test.go` | 新增 `/recommendations` 响应中 `strategy` 字段断言 |
+| 修改 | `task.md` | 追加 RE-Validation 阶段任务与验证结果 |
+
+## 2. 测试覆盖点
+
+- `GET /recommendations`
+  - `limit/offset/need_refresh` 解析与透传
+  - 返回体包含 `strategy`
+  - 非法参数返回 400
+
+- `GET /recommendations/hot`
+  - 正常返回 200
+  - 服务异常路径返回 500
+
+- 契约层
+  - 黑盒测试新增 `strategy` 类型断言，确保前端依赖字段稳定可用
+
+## 3. 验证命令
+
+```bash
+go test ./internal/handler/... -count=1
+go test ./internal/service/... -count=1
+go test ./... -count=1
+```
+
+三条命令全部通过，推荐模块从实现到契约测试形成完整闭环。
+
+---
+
 # B 组后端2：通知 + 行为埋点 + 基础设施
 
 **日期：** 2026-04-05  
