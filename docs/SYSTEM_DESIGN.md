@@ -736,9 +736,16 @@ erDiagram
 | 属性 | 说明 |
 |---|---|
 | **认证** | 公开（可匿名浏览） |
-| **查询参数** | `category`, `status`, `keyword` (模糊搜索 title/description), `sort` (hot/recent/soon), `page`, `page_size` |
+| **查询参数** | `category`, `status`, `keyword` (名称/描述模糊), `region` (地区/城市模糊), `artist` (艺人/标签模糊), `sort` (relevance/hot/recent/soon), `page`, `page_size` |
 
-**请求示例：** `GET /api/v1/activities?category=CONCERT&sort=hot&page=1&page_size=20`
+**查询规则：**
+- 非空筛选项采用 **AND** 关系：`keyword + region + artist + category` 同时生效
+- `keyword` 用于活动名称和描述模糊匹配
+- `region` 用于 `location` 中的城市/地区模糊匹配
+- `artist` 在 v1.0 首期使用 `tags` 与标题中的艺人名进行模糊匹配，不新增独立字段
+- `sort=relevance` 时，默认按“名称完全命中 > 名称包含 > 艺人标签/标题命中 > 地区命中 > 描述命中 > 热门度”的顺序排序
+
+**请求示例：** `GET /api/v1/activities?category=CONCERT&region=北京&artist=张杰&keyword=巡演&sort=relevance&page=1&page_size=20`
 
 **响应 200：**
 ```json
@@ -1700,9 +1707,10 @@ CMD ["./server"]
 
 ```
 /public
+  ├── /                      # ❌ 公开首页（推广 Banner + 推荐 + 分类入口 + 消息通知）
   ├── /login                 # ✅ 登录
   ├── /register              # ✅ 注册
-  └── /activities            # ❌ 活动广场 (公开，可查看列表+详情)
+  └── /activities            # ❌ 活动分类/搜索页 (公开，可查看列表+筛选+搜索)
 
 /app (需登录)
   ├── /app/overview          # ✅ 仪表盘首页 (数据概览)
@@ -1743,12 +1751,21 @@ CMD ["./server"]
 
 ### 11.3 核心页面说明
 
+**公开首页 (`/`)**：
+- 顶部 Header：品牌 Logo、城市选择、`首页/分类` 导航、全局搜索框、消息通知入口、登录入口
+- Hero 区：推广 Banner 轮播（前端 fixture / MSW 提供，暂不新增 Banner 后端接口）
+- 一级分类入口：演唱会/话剧歌剧/体育/儿童亲子/展览休闲/音乐会等核心品类
+- 推荐区：优先调 `GET /recommendations`；未登录或不可用时降级到 `GET /recommendations/hot`
+- 分类分组内容流：每组展示若干活动卡片，点击“查看全部”跳转到 `/activities?category=...`
+- 通知角标：优先调 `GET /notifications/unread-count`；游客点击跳登录
+
 **活动广场页 (`/activities`)**：
-- 顶部：分类 Tabs (全部/演唱会/会议/电竞/博览会)
-- 搜索栏：关键词搜索
-- 排序按钮：热门/最新/即将开始
+- 顶部：全局搜索栏，支持名称/地区/艺人组合检索
+- 筛选区：城市筛选 + 分类 Tabs
+- 排序按钮：相关度/最热门/最近开场/最新上架
 - 内容：ActivityCard 网格列表 (含封面图、标题、时间、热度标签)
-- 底部：分页器
+- 状态：必须具备 Skeleton、空态、错误态
+- 底部：分页器，URL 与筛选条件保持同步
 
 **活动详情页 (`/activity/:id`)**：
 - Hero 区：封面大图 + 标题 + 基本信息

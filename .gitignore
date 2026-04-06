@@ -18,6 +18,7 @@ server
 # IDE
 .vscode/
 .idea/
+.qoder
 *.swp
 *.swo
 
@@ -29,3 +30,5 @@ server
 # Build artifacts (sub-projects have their own)
 dist/
 node_modules/
+
+codexDoc
