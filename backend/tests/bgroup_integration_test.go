@@ -268,9 +268,6 @@ func TestBGroup_OrderPayment(t *testing.T) {
 		t.Errorf("支付后期望 PAID, got %v", payData)
 	}
 }
-func TestBGroup_ExpiredOrderScanStockReplenish(t *testing.T) {
-	t.Skip("ScanExpired 由服务端后台 ticker(5m) 触发，当前无 HTTP/同步入口，黑盒无法稳定断言库存回补；需在暴露运维接口或缩短扫描间隔的测试环境验证")
-}
 
 // --- Recommendations (HTTP on port, seed DB: published activities + seed users) ---
 
