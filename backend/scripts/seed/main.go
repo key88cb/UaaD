@@ -1,6 +1,5 @@
 // Package main provides a seed script that populates the database with test data.
-// Usage: go run ./scripts/seed
-// Runs in the backend/ directory; creates or uses uaad.db.
+// Usage: from backend/ directory run go run ./scripts/seed
 package main
 
 import (
@@ -8,17 +7,26 @@ import (
 	"log"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/uaad/backend/internal/config"
 	"github.com/uaad/backend/internal/domain"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/sqlite"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func main() {
-	db, err := gorm.Open(sqlite.Open("uaad.db"), &gorm.Config{})
+	_ = godotenv.Load(".env")
+	_ = godotenv.Load("../.env")
+
+	cfg := config.Load()
+	db, err := gorm.Open(gormmysql.Open(cfg.MySQLDSN()), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+	cfg.ApplyMySQLPool(sqlDB)
 
 	// AutoMigrate all known models
 	if err := db.AutoMigrate(
@@ -28,6 +36,7 @@ func main() {
 		&domain.Order{},
 		&domain.UserBehavior{},
 		&domain.Notification{},
+		&domain.ActivityScore{},
 	); err != nil {
 		log.Fatalf("failed to migrate: %v", err)
 	}

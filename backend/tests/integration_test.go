@@ -24,8 +24,6 @@ import (
 
 	"github.com/uaad/backend/internal/domain"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 const baseURL = "http://localhost:8080/api/v1"
@@ -56,10 +54,7 @@ func loginAndGetToken(t *testing.T, phone, password string) string {
 
 func registerUserDB(t *testing.T, phone, username, password string) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("../uaad.db"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open db: %v", err)
-	}
+	db := openTestDB(t)
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 
