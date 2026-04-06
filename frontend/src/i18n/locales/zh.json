@@ -6,6 +6,7 @@
     "phone": "手机号",
     "password": "密码",
     "confirmPassword": "确认密码",
+    "passwordMismatch": "两次输入的密码不一致",
     "signIn": "立即登录",
     "signUp": "立刻注册",
     "noAccount": "还没有账号？",
@@ -29,9 +30,93 @@
     "activeActivities": "活跃活动",
     "totalRegistrations": "报名总数",
     "successRate": "平均成功率",
+    "liveNow": "实时更新",
+    "hotRanking": "热门热度",
+    "stableOperation": "稳定运行",
     "highlights": "最近活动亮点",
     "comingSoon": "即将开始",
     "slots": "名额",
     "open": "报名开放中"
+  },
+  "public": {
+    "brandTagline": "聚合票务平台",
+    "navHome": "首页",
+    "navCategories": "分类",
+    "searchPlaceholder": "搜索明星、演出、体育赛事",
+    "searchAction": "搜索",
+    "myAccount": "我的账户",
+    "notifications": "消息通知",
+    "viewAll": "查看全部",
+    "emptyTitle": "暂时没有匹配结果",
+    "emptyDescription": "换一个关键词、城市或分类试试看，我们会继续为你聚合更多活动。",
+    "errorTitle": "内容加载失败",
+    "errorDescription": "当前内容暂时不可用，请稍后刷新重试。",
+    "enrolled": "人想看",
+    "priceStarts": "票价",
+    "stockRemaining": "剩余 {{count}} 张",
+    "viewDetails": "查看详情"
+  },
+  "home": {
+    "recommendations": "为您推荐",
+    "sectionEyebrow": "本周热选"
+  },
+  "activities": {
+    "totalProducts": "共 {{count}} 个活动",
+    "keywordPlaceholder": "搜索活动名称或关键词",
+    "artistPlaceholder": "搜索艺人 / 主演 / 乐团",
+    "region": "城市",
+    "category": "分类",
+    "youMayAlsoLike": "你可能还喜欢"
+  },
+  "sort": {
+    "relevance": "相关度排序",
+    "hot": "最热门",
+    "soon": "最近开场",
+    "recent": "最新上架"
+  },
+  "cities": {
+    "ALL": "全国",
+    "北京": "北京",
+    "上海": "上海",
+    "广州": "广州",
+    "深圳": "深圳",
+    "杭州": "杭州",
+    "成都": "成都",
+    "武汉": "武汉",
+    "南京": "南京",
+    "西安": "西安"
+  },
+  "categories": {
+    "ALL": "全部",
+    "CONCERT": "演唱会",
+    "THEATER": "话剧歌剧",
+    "SPORTS": "体育",
+    "CHILDREN": "儿童亲子",
+    "EXHIBITION": "展览休闲",
+    "MUSIC": "音乐会",
+    "DANCE": "舞蹈芭蕾",
+    "OTHER": "其他"
+  },
+  "status": {
+    "DRAFT": "待发布",
+    "PREHEAT": "预热中",
+    "PUBLISHED": "售票中",
+    "SELLING_OUT": "即将售罄",
+    "SOLD_OUT": "已售罄",
+    "OFFLINE": "已下线",
+    "CANCELLED": "已取消"
+  },
+  "notifications": {
+    "subtitle": "集中查看报名提醒、支付提醒与活动动态。",
+    "empty": "暂时没有新的通知。"
+  },
+  "common": {
+    "previous": "上一张",
+    "next": "下一张",
+    "previousPage": "上一页",
+    "nextPage": "下一页"
+  },
+  "settings": {
+    "currentLang": "系统语言"
   }
 }

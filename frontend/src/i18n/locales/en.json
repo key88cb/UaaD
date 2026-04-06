@@ -6,6 +6,7 @@
     "phone": "Phone",
     "password": "Password",
     "confirmPassword": "Confirm Password",
+    "passwordMismatch": "The passwords do not match.",
     "signIn": "Sign In",
     "signUp": "Sign Up",
     "noAccount": "Don't have an account?",
@@ -29,9 +30,93 @@
     "activeActivities": "Active Activities",
     "totalRegistrations": "Total Registrations",
     "successRate": "Avg. Success Rate",
+    "liveNow": "Live",
+    "hotRanking": "Hot Rank",
+    "stableOperation": "Stable",
     "highlights": "Recent Activity Highlights",
     "comingSoon": "Coming Soon",
     "slots": "slots",
     "open": "Registration Open"
+  },
+  "public": {
+    "brandTagline": "Unified Activity Access",
+    "navHome": "Home",
+    "navCategories": "Categories",
+    "searchPlaceholder": "Search artists, shows, and sports events",
+    "searchAction": "Search",
+    "myAccount": "My Account",
+    "notifications": "Notifications",
+    "viewAll": "View All",
+    "emptyTitle": "No matching activities yet",
+    "emptyDescription": "Try another keyword, city, or category. We are continuously aggregating more events.",
+    "errorTitle": "Unable to load content",
+    "errorDescription": "The content is temporarily unavailable. Please refresh and try again later.",
+    "enrolled": "interested",
+    "priceStarts": "Starting from",
+    "stockRemaining": "{{count}} tickets left",
+    "viewDetails": "View Details"
+  },
+  "home": {
+    "recommendations": "Recommended For You",
+    "sectionEyebrow": "This Week"
+  },
+  "activities": {
+    "totalProducts": "{{count}} activities",
+    "keywordPlaceholder": "Search by event name or keyword",
+    "artistPlaceholder": "Search artist / cast / ensemble",
+    "region": "City",
+    "category": "Category",
+    "youMayAlsoLike": "You May Also Like"
+  },
+  "sort": {
+    "relevance": "Relevance",
+    "hot": "Hottest",
+    "soon": "Starting Soon",
+    "recent": "Newest"
+  },
+  "cities": {
+    "ALL": "Nationwide",
+    "北京": "Beijing",
+    "上海": "Shanghai",
+    "广州": "Guangzhou",
+    "深圳": "Shenzhen",
+    "杭州": "Hangzhou",
+    "成都": "Chengdu",
+    "武汉": "Wuhan",
+    "南京": "Nanjing",
+    "西安": "Xi'an"
+  },
+  "categories": {
+    "ALL": "All",
+    "CONCERT": "Concerts",
+    "THEATER": "Theater",
+    "SPORTS": "Sports",
+    "CHILDREN": "Kids",
+    "EXHIBITION": "Exhibitions",
+    "MUSIC": "Orchestras",
+    "DANCE": "Dance",
+    "OTHER": "Other"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PREHEAT": "Preheat",
+    "PUBLISHED": "On Sale",
+    "SELLING_OUT": "Selling Out",
+    "SOLD_OUT": "Sold Out",
+    "OFFLINE": "Offline",
+    "CANCELLED": "Cancelled"
+  },
+  "notifications": {
+    "subtitle": "Review enrollment updates, payment reminders, and activity alerts in one place.",
+    "empty": "No new notifications right now."
+  },
+  "common": {
+    "previous": "Previous slide",
+    "next": "Next slide",
+    "previousPage": "Previous",
+    "nextPage": "Next"
+  },
+  "settings": {
+    "currentLang": "System language"
   }
 }

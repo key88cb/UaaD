@@ -19,6 +19,7 @@ export default function DashboardLayout() {
   const menuItems = [
     { icon: LayoutDashboard, label: t('dashboard.overview'), path: '/app/overview' },
     { icon: Calendar, label: t('dashboard.activities'), path: '/app/activities' },
+    { icon: Bell, label: t('dashboard.notifications'), path: '/app/notifications' },
     { icon: User, label: t('dashboard.profile'), path: '/app/profile' },
     { icon: Settings, label: t('dashboard.settings'), path: '/app/settings' },
   ];
@@ -77,10 +78,14 @@ export default function DashboardLayout() {
           </div>
           <div className="flex items-center gap-4">
             <LanguageToggle />
-            <div className="p-2 bg-slate-900/50 border border-slate-800 rounded-lg relative cursor-pointer hover:bg-slate-800 transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate('/app/notifications')}
+              className="relative rounded-lg border border-slate-800 bg-slate-900/50 p-2 transition-colors hover:bg-slate-800"
+            >
               <Bell size={20} className="text-slate-400 hover:text-white transition-colors" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-950"></span>
-            </div>
+            </button>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full cursor-pointer ring-2 ring-slate-800 ring-offset-2 ring-offset-slate-950 hover:ring-blue-500/50 transition-all"></div>
           </div>
         </header>

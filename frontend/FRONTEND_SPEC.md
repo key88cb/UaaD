@@ -41,9 +41,10 @@ Protected pages (e.g., Dashboard, Activities) must not process auth logic explic
 ## 🎨 3. UI & Asset Guidelines
 
 ### 3.1 Styling Conventions (Tailwind v4)
-- **Aesthetic**: Premium "Glassmorphism" Dark Mode by default.
-- **Colors**: Rely heavily on `slate-900` to `slate-950` for backgrounds, elevated with `blue-500` / `purple-500` translucent gradient blurs for interactive elements.
+- **Public Discovery Pages** (`/`, `/activities`): Use a light, content-distribution layout inspired by mainstream ticketing platforms. Prioritize editorial whitespace, clear card grouping, strong pink/red CTA accents, and desktop-first browsing patterns that gracefully collapse on mobile.
+- **Authenticated Dashboard Pages** (`/app/*`, `/merchant/*`): Existing darker dashboard styling may remain, but new public discovery pages must not inherit the dark glassmorphism shell.
 - **Class Grouping**: Organize classes functionally: `[Layout] [Flexbox/Grid] [Spacing] [Typography] [Colors] [Effects]`.
+- **No Pixel Copying**: Reference large ticketing sites for information architecture, not for brand cloning.
 
 ### 3.2 Internationalization (i18n)
 All user-facing text must be internationalized to support concurrent cross-region operations.
@@ -64,8 +65,9 @@ All user-facing text must be internationalized to support concurrent cross-regio
 We utilize `msw` to act as an interceptive proxy layer simulating backend endpoints before Go API finalization.
 - **Environment Toggle**: Set `VITE_USE_MOCK=true` in `.env` to engage. If false or missing, the app hits the real network.
 - **Passthrough Policy**: Important core endpoints (like `/api/v1/auth/*`) are configured as `bypass` inside `src/mocks/browser.ts`, meaning they will always hit the real backend regardless of the mock state.
-- **Handler Definitions**: Stored in `src/mocks/handlers.ts`.
+- **Handler Definitions**: Split by domain under `src/mocks/handlers/`, then re-exported from a single index file.
 - **Rule**: When mocking C-End flow (like Ticket Registration), always implement realistic `delay(ms)` and randomly return `202 Accepted` ("Queueing") to force UI loading states to display, assuring the frontend handles extreme concurrency grace gracefully.
+- **Current Boundary**: Public homepage recommendation, notification badge, and banner data are allowed to be MSW-first. Activity list/search should prefer the documented `/activities` contract and only fall back to MSW when the backend capability is unavailable.
 
 ---
 
@@ -74,13 +76,25 @@ We utilize `msw` to act as an interceptive proxy layer simulating backend endpoi
 frontend/
 ├── src/
 │   ├── api/          # Axios instances and endpoint definitions
+│   │   └── endpoints/ # Domain API wrappers (activities/recommendations/notifications/...)
 │   ├── components/   # Reusable UI (Buttons, LanguageToggle, ProtectedRoute)
 │   ├── context/      # Global state providers (AuthContext)
+│   ├── constants/    # Shared option lists and public-category metadata
+│   ├── data/         # Static homepage fixtures (banner seeds, fallback sections)
+│   ├── hooks/        # Route/query/data helper hooks
 │   ├── i18n/         # i18next configs and locale JSONs
 │   ├── layouts/      # Global wrappers (DashboardLayout)
-│   ├── mocks/        # MSW Handlers and browser setup
-│   ├── pages/        # View-level route components (Login, Dashboard)
+│   ├── mocks/        # MSW handlers and browser setup
+│   ├── pages/        # View-level route components (Home, Activities, Login, Dashboard)
+│   ├── types/        # Shared TypeScript contracts
 │   ├── App.tsx       # Core Router definitions
 │   └── main.tsx      # React Bootstrapper
 └── package.json      # Dependencies and scripts
 ```
+
+## 6. Public Discovery Contract
+- Public landing route is `/`, not `/app/overview`.
+- Public category/search route remains `/activities`.
+- `GET /activities` must be consumed through endpoint wrappers and support `keyword`, `region`, `artist`, `category`, `sort`, `page`, `page_size`.
+- Sort options for the public search page are fixed to `relevance`, `hot`, `soon`, `recent`.
+- Search state must be URL-synced so refresh/share/back-forward keep the current filters intact.

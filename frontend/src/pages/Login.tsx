@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogIn, User, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -25,7 +26,12 @@ const LoginPage = () => {
       const response = await api.post('/auth/login', { phone, password });
       const { token } = response.data.data;
       login(token);
-      navigate('/dashboard');
+      const fallbackPath = '/app/overview';
+      const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+      const nextPath = from?.pathname
+        ? `${from.pathname}${from.search ?? ''}`
+        : fallbackPath;
+      navigate(nextPath, { replace: true });
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || t('auth.errorMsg'));

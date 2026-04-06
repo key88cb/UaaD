@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import api from '../api/axios';
+import { listActivities } from '../api/endpoints';
+import type { ActivityListItem } from '../types';
+import { formatLongDate } from '../utils/formatters';
 
 const DashboardPage = () => {
   const { t } = useTranslation();
 
-  const [stats, setStats] = useState<any[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
+  const [stats, setStats] = useState<
+    Array<{ label: string; value: string; trend: string; color: string }>
+  >([]);
+  const [activities, setActivities] = useState<ActivityListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -16,25 +20,68 @@ const DashboardPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [statsRes, activitiesRes] = await Promise.all([
-          api.get('/dashboard/stats'),
-          api.get('/activities/recent')
+        const [overviewResult, recentResult] = await Promise.all([
+          listActivities({
+            keyword: '',
+            region: 'ALL',
+            artist: '',
+            category: 'ALL',
+            sort: 'hot',
+            page: 1,
+            pageSize: 12,
+          }),
+          listActivities({
+            keyword: '',
+            region: 'ALL',
+            artist: '',
+            category: 'ALL',
+            sort: 'recent',
+            page: 1,
+            pageSize: 4,
+          }),
         ]);
-        setStats(statsRes.data);
-        if (activitiesRes.status === 202) {
-          setError(activitiesRes.data.error || 'Queueing...');
-        } else {
-          setActivities(activitiesRes.data);
-        }
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load data');
+
+        const totalEnrollments = overviewResult.list.reduce(
+          (sum, item) => sum + item.enrollCount,
+          0,
+        );
+        const activeSelling = overviewResult.list.filter((item) =>
+          ['PUBLISHED', 'SELLING_OUT'].includes(item.status),
+        ).length;
+        const successRate = overviewResult.list.length
+          ? `${Math.round((activeSelling / overviewResult.list.length) * 100)}%`
+          : '0%';
+
+        setStats([
+          {
+            label: t('dashboard.activeActivities'),
+            value: String(overviewResult.total),
+            trend: t('dashboard.liveNow'),
+            color: 'from-blue-500/20 to-indigo-500/20',
+          },
+          {
+            label: t('dashboard.totalRegistrations'),
+            value: totalEnrollments.toLocaleString(),
+            trend: t('dashboard.hotRanking'),
+            color: 'from-purple-500/20 to-pink-500/20',
+          },
+          {
+            label: t('dashboard.successRate'),
+            value: successRate,
+            trend: t('dashboard.stableOperation'),
+            color: 'from-emerald-500/20 to-teal-500/20',
+          },
+        ]);
+        setActivities(recentResult.list);
+      } catch {
+        setError(t('public.errorDescription'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [t]);
 
   return (
     <div className="w-full animate-fade-in pb-12">
@@ -96,8 +143,12 @@ const DashboardPage = () => {
                   <p className="text-sm text-slate-400">{activity.description}</p>
                 </div>
                 <div className="sm:text-right mt-2 sm:mt-0 flex sm:block items-center justify-between">
-                  <p className="text-slate-300 font-medium">{activity.date}</p>
-                  <p className="text-sm text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 mt-1 inline-block">{activity.status}</p>
+                  <p className="text-slate-300 font-medium">
+                    {formatLongDate(activity.activityAt)}
+                  </p>
+                  <p className="text-sm text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 mt-1 inline-block">
+                    {t(`status.${activity.status}`)}
+                  </p>
                 </div>
               </motion.div>
             ))}
