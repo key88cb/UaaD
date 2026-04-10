@@ -35,11 +35,13 @@ type Config struct {
 	DBMaxIdleConns    int
 	DBMaxOpenConns    int
 	DBConnMaxLifetime time.Duration
-	RedisHost         string
-	RedisPort         string
-	KafkaBroker       string
+	RedisHost          string
+	RedisPort          string
+	KafkaBroker        string
+	KafkaTopic         string
+	KafkaConsumerGroup string
 
-	Scoring                    ScoringWeights
+	Scoring ScoringWeights
 	ScoreRecalcIntervalMinutes int
 	BehaviorWriteAsync         bool
 }
@@ -60,7 +62,9 @@ func Load() *Config {
 		DBConnMaxLifetime: parseDurationEnv("DB_CONN_MAX_LIFETIME", time.Hour),
 		RedisHost:         getEnv("REDIS_HOST", "localhost"),
 		RedisPort:         getEnv("REDIS_PORT", "6379"),
-		KafkaBroker:       getEnv("KAFKA_BROKER", "localhost:9092"),
+		KafkaBroker:        getEnv("KAFKA_BROKER", "localhost:9092"),
+		KafkaTopic:         getEnv("KAFKA_TOPIC_ENROLLMENT", "enrollment_requests"),
+		KafkaConsumerGroup: getEnv("KAFKA_CONSUMER_GROUP", "uaad-enrollment-consumer"),
 
 		Scoring: ScoringWeights{
 			ViewWeight:      parseFloatEnv("SCORE_WEIGHT_VIEW", 0.2),

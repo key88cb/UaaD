@@ -56,11 +56,17 @@ func (h *EnrollmentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	response.Accepted(c, gin.H{
-		"enrollment_id": result.EnrollmentID,
-		"status":        result.Status,
-		"order_no":      result.OrderNo,
-	})
+	data := gin.H{
+		"status":         result.Status,
+		"queue_position": result.QueuePosition,
+	}
+	if result.EnrollmentID != 0 {
+		data["enrollment_id"] = result.EnrollmentID
+	}
+	if result.OrderNo != "" {
+		data["order_no"] = result.OrderNo
+	}
+	response.Accepted(c, data)
 }
 
 // GetStatus handles GET /api/v1/enrollments/:id/status.

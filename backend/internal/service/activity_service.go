@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/uaad/backend/internal/domain"
@@ -62,12 +64,13 @@ type ActivityService interface {
 }
 
 type activityService struct {
-	repo repository.ActivityRepository
+	repo        repository.ActivityRepository
+	stockEngine StockEngine
 }
 
 // NewActivityService creates a new ActivityService.
-func NewActivityService(repo repository.ActivityRepository) ActivityService {
-	return &activityService{repo: repo}
+func NewActivityService(repo repository.ActivityRepository, stockEngine StockEngine) ActivityService {
+	return &activityService{repo: repo, stockEngine: stockEngine}
 }
 
 func (s *activityService) Create(merchantID uint64, req CreateActivityReq) (uint64, error) {
@@ -212,6 +215,12 @@ func (s *activityService) Publish(activityID, merchantID uint64) (*domain.Activi
 	if err := s.repo.Update(activity); err != nil {
 		return nil, err
 	}
+
+	// Cache warm-up: pre-load stock into Redis (non-blocking on failure)
+	if err := s.stockEngine.WarmUp(context.Background(), activityID, activity.MaxCapacity); err != nil {
+		log.Printf("[ActivityPublish] WARNING: Redis warm-up failed for activity=%d: %v", activityID, err)
+	}
+
 	return activity, nil
 }
 
