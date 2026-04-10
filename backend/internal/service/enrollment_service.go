@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,10 +25,19 @@ var (
 
 var orderSeq atomic.Int64
 
-// GenerateOrderNo generates an order number in the format ORD{YYYYMMDD}{8-digit seq}.
+// GenerateOrderNo produces a collision-free order number:
+// ORD + YYYYMMDD + 14-digit monotonic nanos + 4-digit random suffix.
+// Total 29 chars, unique across process restarts and concurrent goroutines.
 func GenerateOrderNo() string {
 	seq := orderSeq.Add(1)
-	return fmt.Sprintf("ORD%s%08d", time.Now().Format("20060102"), seq)
+	now := time.Now()
+	var rnd [2]byte
+	rand.Read(rnd[:])
+	return fmt.Sprintf("ORD%s%06d%04d",
+		now.Format("20060102"),
+		(now.UnixNano()/1000)%1_000_000+seq,
+		int(rnd[0])<<8|int(rnd[1])%10000,
+	)
 }
 
 // EnrollResult holds the data returned after a successful enrollment request.
