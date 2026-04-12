@@ -20,3 +20,21 @@
 - `pnpm test`：通过（新增 smoke、401、1101、enrollments endpoint 测试）。
 - `pnpm build`：通过。
 - `pnpm lint`：存在仓库既有错误（Merchant 页面中的 `react-hooks/set-state-in-effect`），与本次改动无直接关联。
+
+## 2026-04-13 · 前端 lint 修复迭代
+
+### 变更概览
+- 修复 `MerchantActivities.tsx` 中 `react-hooks/set-state-in-effect`：
+  - 去除 effect 内同步 `setBanner`，改为从路由 state 派生 banner。
+  - 首次加载改为带取消标记的异步请求，避免 effect 中同步 setState。
+  - 发布后刷新列表改为独立 `reloadList()`。
+- 修复 `MerchantActivityEdit.tsx` 中 `react-hooks/set-state-in-effect`：
+  - 去除 effect 内同步 `setLoading(false)` 分支。
+  - 引入 `isActivityIdValid` 派生判定与 invalid-id 早返回视图。
+  - 为异步详情加载增加取消标记，卸载时避免写状态。
+- 在 `eslint.config.js` 中忽略 `public/mockServiceWorker.js`，消除生成文件的无效注释 warning。
+
+### 验证结果
+- `pnpm lint`：通过。
+- `pnpm test`：通过。
+- `pnpm build`：通过。

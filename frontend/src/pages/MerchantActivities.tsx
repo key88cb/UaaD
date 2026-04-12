@@ -12,23 +12,36 @@ export default function MerchantActivitiesPage() {
   const [items, setItems] = useState<ActivityListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishingId, setPublishingId] = useState<number | null>(null);
-  const [banner, setBanner] = useState<string>('');
+  const banner = (location.state as { message?: string } | null)?.message ?? '';
 
   useEffect(() => {
-    const message = (location.state as { message?: string } | null)?.message;
-    if (message) {
-      setBanner(message);
-    }
-  }, [location.state]);
-
-  const load = () => {
-    setLoading(true);
+    let cancelled = false;
     listMerchantActivities()
-      .then(setItems)
-      .finally(() => setLoading(false));
-  };
+      .then((data) => {
+        if (!cancelled) {
+          setItems(data);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-  useEffect(load, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const reloadList = async () => {
+    setLoading(true);
+    try {
+      const data = await listMerchantActivities();
+      setItems(data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const canPublish = (status: ActivityListItem['status']) => status === 'DRAFT' || status === 'PREHEAT';
 
@@ -104,7 +117,7 @@ export default function MerchantActivitiesPage() {
                           setPublishingId(item.id);
                           await publishMerchantActivity(item.id).catch(() => undefined);
                           setPublishingId(null);
-                          load();
+                          await reloadList();
                         }}
                         className="inline-flex items-center gap-1 rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >

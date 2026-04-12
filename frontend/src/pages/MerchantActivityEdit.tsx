@@ -10,19 +10,24 @@ export default function MerchantActivityEditPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const activityId = Number(id);
+  const isActivityIdValid = Number.isFinite(activityId);
 
   const [initialValue, setInitialValue] = useState<MerchantActivityInput | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isActivityIdValid);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(activityId)) {
-      setLoading(false);
+    if (!isActivityIdValid) {
       return;
     }
 
+    let cancelled = false;
+
     getActivityDetail(activityId)
       .then((activity) => {
+        if (cancelled) {
+          return;
+        }
         setInitialValue({
           title: activity.title,
           description: activity.description,
@@ -36,8 +41,24 @@ export default function MerchantActivityEditPage() {
           activityAt: activity.activityAt,
         });
       })
-      .finally(() => setLoading(false));
-  }, [activityId]);
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activityId, isActivityIdValid]);
+
+  if (!isActivityIdValid) {
+    return (
+      <div className="rounded-3xl border border-slate-700 bg-slate-900/50 p-8 text-slate-300">
+        {t('activityDetail.invalidId')}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
