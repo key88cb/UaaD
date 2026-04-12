@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { AUTH_LOGOUT_EVENT } from '../constants/authEvents';
 
 const api = axios.create({
   baseURL: 'http://localhost:8080/api/v1',
@@ -29,10 +30,7 @@ api.interceptors.response.use(
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
         localStorage.removeItem('token');
-        // Simple client-side redirect since this runs outside context
-        if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-        }
+        window.dispatchEvent(new CustomEvent(AUTH_LOGOUT_EVENT));
       }
       
       // Could also add more global catches for 403, 500, etc. here
