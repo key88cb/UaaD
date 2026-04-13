@@ -1,4 +1,5 @@
 import type { AuthRole, AuthSession } from '../types/auth';
+import { normalizeUserRole } from '../types/user';
 
 const AUTH_STORAGE_KEY = 'auth_session';
 const LEGACY_TOKEN_KEY = 'token';
@@ -13,9 +14,16 @@ interface BuildLoginPathOptions {
 interface StoredAuthSession {
   token?: string;
   expiresAt?: string | null;
+  expires_at?: string | null;
   userId?: number | null;
+  user_id?: number | null;
   role?: AuthRole | null;
   username?: string | null;
+}
+
+function readStoredNumber(...values: Array<number | null | undefined>) {
+  const matched = values.find((value) => typeof value === 'number' && Number.isFinite(value));
+  return typeof matched === 'number' ? matched : null;
 }
 
 export function getStoredAuthSession(): AuthSession | null {
@@ -28,11 +36,16 @@ export function getStoredAuthSession(): AuthSession | null {
     if (rawSession) {
       const parsedSession = JSON.parse(rawSession) as StoredAuthSession;
       if (typeof parsedSession.token === 'string' && parsedSession.token) {
+        const normalizedRole =
+          typeof parsedSession.role === 'string' && parsedSession.role
+            ? normalizeUserRole(parsedSession.role)
+            : null;
+
         return {
           token: parsedSession.token,
-          expiresAt: parsedSession.expiresAt ?? null,
-          userId: typeof parsedSession.userId === 'number' ? parsedSession.userId : null,
-          role: typeof parsedSession.role === 'string' ? parsedSession.role : null,
+          expiresAt: parsedSession.expiresAt ?? parsedSession.expires_at ?? null,
+          userId: readStoredNumber(parsedSession.userId, parsedSession.user_id),
+          role: normalizedRole,
           username: typeof parsedSession.username === 'string' ? parsedSession.username : null,
         };
       }

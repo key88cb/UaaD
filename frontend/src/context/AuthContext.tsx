@@ -4,9 +4,9 @@ import type { ReactNode } from 'react';
 import { getProfile } from '../api/endpoints';
 import type { AuthRole, AuthSession } from '../types/auth';
 import {
-  clearStoredAuthSession,
   getStoredAuthSession,
   setStoredAuthSession,
+  clearStoredAuthSession,
 } from '../utils/auth';
 
 interface AuthContextType {
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let active = true;
 
-    getProfile()
+    getProfile({ skipAuthRedirect: true })
       .then((profile) => {
         if (!active) {
           return;
@@ -68,9 +68,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!active) {
           return;
         }
-
-        clearStoredAuthSession();
-        setSession(null);
       })
       .finally(() => {
         if (active) {

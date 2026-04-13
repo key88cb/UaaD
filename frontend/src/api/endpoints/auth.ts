@@ -1,4 +1,5 @@
 import api from '../axios';
+import { AUTH_REDIRECT_BYPASS_HEADER } from '../axios';
 import type { AuthRole, AuthSession } from '../../types/auth';
 import { normalizeUserRole, type UserProfile } from '../../types/user';
 
@@ -43,6 +44,10 @@ interface UserProfilePayload {
   created_at: string;
 }
 
+interface GetProfileOptions {
+  skipAuthRedirect?: boolean;
+}
+
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
   const response = await api.post<BackendPayload<LoginResponseDTO>>('/auth/login', payload);
   const { token, expires_at: expiresAt, user_id: userId, role, username } = response.data.data;
@@ -61,8 +66,12 @@ export async function register(payload: RegisterRequest): Promise<RegisterRespon
   return response.data.data;
 }
 
-export async function getProfile(): Promise<UserProfile> {
-  const response = await api.get<BackendPayload<UserProfilePayload>>('/auth/profile');
+export async function getProfile(options: GetProfileOptions = {}): Promise<UserProfile> {
+  const response = await api.get<BackendPayload<UserProfilePayload>>('/auth/profile', {
+    headers: options.skipAuthRedirect
+      ? { [AUTH_REDIRECT_BYPASS_HEADER]: '1' }
+      : undefined,
+  });
   const profile = response.data.data;
 
   return {

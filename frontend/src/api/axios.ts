@@ -5,6 +5,28 @@ import {
   getStoredAuthSession,
 } from '../utils/auth';
 
+const AUTH_REDIRECT_BYPASS_HEADER = 'X-UAAD-Skip-Auth-Redirect';
+
+function shouldSkipAuthRedirect(headers?: unknown) {
+  if (!headers) {
+    return false;
+  }
+
+  if (typeof headers === 'object' && headers !== null && 'get' in headers) {
+    const headerValue = (headers as { get?: (name: string) => string | undefined }).get?.(
+      AUTH_REDIRECT_BYPASS_HEADER,
+    );
+    return headerValue === '1';
+  }
+
+  if (typeof headers === 'object' && headers !== null) {
+    const record = headers as Record<string, string | undefined>;
+    return record[AUTH_REDIRECT_BYPASS_HEADER] === '1';
+  }
+
+  return false;
+}
+
 const api = axios.create({
   baseURL: 'http://localhost:8080/api/v1',
   headers: {
@@ -31,8 +53,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
+      const skipAuthRedirect = shouldSkipAuthRedirect(error.config?.headers);
+
       // Handle 401 Unauthorized
-      if (error.response.status === 401) {
+      if (error.response.status === 401 && !skipAuthRedirect) {
         clearStoredAuthSession();
         if (window.location.pathname !== '/login') {
           const redirectTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -53,3 +77,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+export { AUTH_REDIRECT_BYPASS_HEADER };
