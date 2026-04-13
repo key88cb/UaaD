@@ -38,3 +38,18 @@
 - `pnpm lint`：通过。
 - `pnpm test`：通过。
 - `pnpm build`：通过。
+
+## 2026-04-13 · 商户控制台与通知联调记录
+
+### 变更概览
+- **商户端**：`MerchantDashboard` / `MerchantActivities` / `MerchantActivityNew` / `MerchantActivityEdit` 对接真实商户活动接口；列表、发布、创建、编辑、详情加载失败时使用页面横幅展示 `getRequestErrorMessage` 文案，不单依赖控制台；创建成功可通过回跳 `location.state.message` 提示；发布走 `publishMerchantActivity` 并刷新列表。
+- **MerchantForm**：提交前校验报名开始早于报名结束、报名结束早于活动开始；表单字段与 `toBackendActivityInput` / 后端约定一致。
+- **通知 API 客户端**（`api/endpoints/notifications.ts`）：`GET /notifications` 分页（`list`、`total`、`page`、`page_size`）；`GET /notifications/unread-count` 读取 `data.unread_count`；`PUT /notifications/:id/read` 标记已读；将 `created_at`、`is_read` 等蛇形字段映射为 `NotificationItem`。
+- **通知页面**（`pages/Notifications.tsx`）：首屏加载 + 「加载更多」分页追加；空态与骨架占位；请求失败横幅；点击条目调用 `markNotificationRead` 并乐观更新已读样式。
+- **通知铃铛**（`components/public/NotificationBell.tsx`）：已登录时拉取未读数；依赖路由 `pathname`、定时轮询与 `window` `focus` 刷新，保持角标与列表大致同步。
+- **共用错误文案**（`utils/requestErrorMessage.ts`）：供商户与通知等页面统一解析 axios 业务错误与网络错误。
+
+
+### 验证结果
+- 代码层面：商户列表 → 新建/编辑 → 发布、通知列表 → 标记已读、铃铛未读数刷新路径已实现。
+- 运行时：需在商户账号与普通用户账号下用 Chrome DevTools 确认核心请求无持续 401/404，并与后端通知写库行为一致（未读数、已读状态）。

@@ -1,39 +1,55 @@
 import { Bell } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getUnreadNotificationCount } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 
+const REFRESH_INTERVAL_MS = 45_000;
+
 export function NotificationBell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const [count, setCount] = useState(0);
 
-  useEffect(() => {
-    let active = true;
+  const refreshCount = useCallback(() => {
+    if (!isAuthenticated) {
+      setCount(0);
+      return;
+    }
 
+    getUnreadNotificationCount()
+      .then(setCount)
+      .catch(() => setCount(0));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    refreshCount();
+  }, [isAuthenticated, location.pathname, refreshCount]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return undefined;
     }
 
-    getUnreadNotificationCount()
-      .then((value) => {
-        if (active) {
-          setCount(value);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCount(0);
-        }
-      });
+    const id = window.setInterval(refreshCount, REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [isAuthenticated, refreshCount]);
 
-    return () => {
-      active = false;
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    const onFocus = () => {
+      refreshCount();
     };
-  }, [isAuthenticated]);
+
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isAuthenticated, refreshCount]);
 
   const handleClick = () => {
     navigate(isAuthenticated ? '/app/notifications' : '/login');

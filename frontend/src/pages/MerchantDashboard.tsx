@@ -4,15 +4,19 @@ import { BarChart3, CalendarRange, CircleDot, PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { listMerchantActivities } from '../api/endpoints';
 import type { ActivityListItem } from '../types';
+import { getRequestErrorMessage } from '../utils/requestErrorMessage';
 
 export default function MerchantDashboardPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState<ActivityListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    setLoadError('');
     listMerchantActivities()
       .then(setItems)
+      .catch((err) => setLoadError(getRequestErrorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -39,6 +43,12 @@ export default function MerchantDashboardPage() {
           {t('merchant.createActivity')}
         </Link>
       </div>
+
+      {loadError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-5">

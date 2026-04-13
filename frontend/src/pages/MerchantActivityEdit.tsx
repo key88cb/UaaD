@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { MerchantForm } from '../components/MerchantForm';
 import { getActivityDetail, updateMerchantActivity } from '../api/endpoints';
 import type { MerchantActivityInput } from '../types';
+import { getRequestErrorMessage } from '../utils/requestErrorMessage';
 
 export default function MerchantActivityEditPage() {
   const { t } = useTranslation();
@@ -15,6 +16,8 @@ export default function MerchantActivityEditPage() {
   const [initialValue, setInitialValue] = useState<MerchantActivityInput | null>(null);
   const [loading, setLoading] = useState(isActivityIdValid);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     if (!isActivityIdValid) {
@@ -23,6 +26,7 @@ export default function MerchantActivityEditPage() {
 
     let cancelled = false;
 
+    setLoadError('');
     getActivityDetail(activityId)
       .then((activity) => {
         if (cancelled) {
@@ -40,6 +44,11 @@ export default function MerchantActivityEditPage() {
           enrollCloseAt: activity.enrollCloseAt,
           activityAt: activity.activityAt,
         });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(getRequestErrorMessage(err));
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -67,23 +76,42 @@ export default function MerchantActivityEditPage() {
         <p className="mt-2 text-slate-300">{t('merchant.editSubtitle')}</p>
       </div>
 
-      {loading || !initialValue ? (
+      {loadError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {loadError}
+        </div>
+      ) : null}
+
+      {loading ? (
         <div className="rounded-3xl border border-slate-700 bg-slate-900/50 p-8 text-slate-300">
           {t('merchant.loading')}
         </div>
-      ) : (
-        <MerchantForm
-          initialValue={initialValue}
-          loading={submitting}
-          submitLabel={t('merchant.editSubmit')}
-          onSubmit={async (payload) => {
-            setSubmitting(true);
-            await updateMerchantActivity(activityId, payload);
-            setSubmitting(false);
-            navigate('/merchant/activities', { state: { message: t('merchant.editSuccess') } });
-          }}
-        />
-      )}
+      ) : initialValue ? (
+        <>
+          {submitError ? (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+              {submitError}
+            </div>
+          ) : null}
+          <MerchantForm
+            initialValue={initialValue}
+            loading={submitting}
+            submitLabel={t('merchant.editSubmit')}
+            onSubmit={async (payload) => {
+              setSubmitError('');
+              setSubmitting(true);
+              try {
+                await updateMerchantActivity(activityId, payload);
+                navigate('/merchant/activities', { state: { message: t('merchant.editSuccess') } });
+              } catch (err) {
+                setSubmitError(getRequestErrorMessage(err));
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
