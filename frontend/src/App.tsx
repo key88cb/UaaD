@@ -56,7 +56,7 @@ function App() {
             <Route
               path="/merchant"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['MERCHANT']}>
                   <MerchantLayout />
                 </ProtectedRoute>
               }
