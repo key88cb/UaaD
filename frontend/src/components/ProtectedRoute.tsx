@@ -13,9 +13,13 @@ export const ProtectedRoute = ({
   children: ReactNode;
   allowedRoles?: AuthRole[];
 }) => {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, isInitializing, role } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
+
+  if (isInitializing) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     const redirectTo = `${location.pathname}${location.search}${location.hash}`;

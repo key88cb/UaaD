@@ -8,9 +8,12 @@ import DashboardPage from './pages/Dashboard';
 import ActivitiesPage from './pages/Activities';
 import HomePage from './pages/Home';
 import NotificationsPage from './pages/Notifications';
+import OrdersPage from './pages/Orders';
+import OrderDetailPage from './pages/OrderDetail';
 import ProfilePage from './pages/Profile';
 import PublicActivitiesPage from './pages/PublicActivities';
 import ActivityDetailPage from './pages/ActivityDetail';
+import EnrollStatusPage from './pages/EnrollStatus';
 import SettingsPage from './pages/Settings';
 import MerchantDashboardPage from './pages/MerchantDashboard';
 import MerchantActivitiesPage from './pages/MerchantActivities';
@@ -47,6 +50,9 @@ function App() {
               {/* Nested Application Routes */}
               <Route path="overview" element={<DashboardPage />} />
               <Route path="activities" element={<ActivitiesPage />} />
+              <Route path="enroll-status/:id" element={<EnrollStatusPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="orders/:id" element={<OrderDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />

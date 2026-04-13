@@ -1,7 +1,10 @@
 import { isAxiosError } from 'axios';
 import {
+  BellRing,
   CalendarDays,
   Clock3,
+  ExternalLink,
+  Loader2,
   MapPin,
   RefreshCcw,
   Ticket,
@@ -9,21 +12,29 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ActivityCountdown from '../components/ActivityCountdown';
 import { StatusChip } from '../components/public/StatusChip';
-import { getActivityDetail, getActivityStock } from '../api/endpoints';
-import type { ActivityDetail, ActivityStockSnapshot } from '../types';
+import {
+  createEnrollment,
+  findOrderByOrderNo,
+  getActivityDetail,
+  getActivityStock,
+} from '../api/endpoints';
+import { useAuth } from '../context/AuthContext';
+import type { ActivityDetail as ActivityDetailModel, ActivityStockSnapshot } from '../types';
+import { hasActivityReminder, saveActivityReminder } from '../utils/activityReminderState';
 import {
   resolveActivityCountdownState,
   type ActivityCountdownPhase,
 } from '../utils/activityCountdown';
+import { buildLoginPath } from '../utils/auth';
 import { formatCurrency, formatLongDate } from '../utils/formatters';
 
 type DetailViewState = 'loading' | 'success' | 'empty' | 'error';
-type EnrollActionState = 'upcoming' | 'sellingPending' | 'soldOut' | 'closed' | 'unavailable';
+type EnrollActionState = 'upcoming' | 'selling' | 'soldOut' | 'closed' | 'unavailable';
 type StockState = 'ample' | 'tight' | 'soldOut';
 
 interface StatePanelProps {
@@ -151,7 +162,7 @@ function HeroFact({ icon: Icon, label, value }: HeroFactProps) {
   );
 }
 
-function getStockMeta(activity: ActivityDetail, currentStock: number): StockMeta {
+function getStockMeta(activity: ActivityDetailModel, currentStock: number): StockMeta {
   const percent =
     activity.maxCapacity > 0
       ? Math.round((Math.max(0, currentStock) / activity.maxCapacity) * 100)
@@ -193,7 +204,7 @@ function getStockMeta(activity: ActivityDetail, currentStock: number): StockMeta
 }
 
 function getEnrollActionState(
-  activity: ActivityDetail,
+  activity: ActivityDetailModel,
   countdownPhase: ActivityCountdownPhase,
 ): EnrollActionState {
   if (
@@ -216,23 +227,79 @@ function getEnrollActionState(
     return 'closed';
   }
 
-  return 'sellingPending';
+  return 'selling';
+}
+
+function buildMapModel(activity: ActivityDetailModel | null) {
+  if (!activity) {
+    return {
+      hasCoordinates: false,
+      openUrl: '',
+      embedUrl: null,
+      latitudeLabel: null,
+      longitudeLabel: null,
+    };
+  }
+
+  const hasCoordinates =
+    typeof activity.latitude === 'number' && typeof activity.longitude === 'number';
+
+  if (!hasCoordinates) {
+    return {
+      hasCoordinates: false,
+      openUrl: `https://www.openstreetmap.org/search?query=${encodeURIComponent(activity.location)}`,
+      embedUrl: null,
+      latitudeLabel: null,
+      longitudeLabel: null,
+    };
+  }
+
+  const latitude = Number(activity.latitude);
+  const longitude = Number(activity.longitude);
+  const delta = 0.03;
+  const bbox = [
+    (longitude - delta).toFixed(5),
+    (latitude - delta).toFixed(5),
+    (longitude + delta).toFixed(5),
+    (latitude + delta).toFixed(5),
+  ].join('%2C');
+
+  return {
+    hasCoordinates: true,
+    openUrl: `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=15/${latitude}/${longitude}`,
+    embedUrl: `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`,
+    latitudeLabel: latitude.toFixed(4),
+    longitudeLabel: longitude.toFixed(4),
+  };
 }
 
 export default function ActivityDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, session } = useAuth();
   const { id } = useParams();
   const activityId = Number(id);
   const hasValidActivityId = Number.isFinite(activityId) && activityId > 0;
 
   const [viewState, setViewState] = useState<DetailViewState>('loading');
-  const [activity, setActivity] = useState<ActivityDetail | null>(null);
+  const [activity, setActivity] = useState<ActivityDetailModel | null>(null);
   const [stockSnapshot, setStockSnapshot] = useState<ActivityStockSnapshot | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReminderSet, setIsReminderSet] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{
+    tone: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!hasValidActivityId) {
+      setViewState('empty');
+      setActivity(null);
+      setStockSnapshot(null);
+      setErrorMessage('');
       return;
     }
 
@@ -280,12 +347,20 @@ export default function ActivityDetailPage() {
       }
     }
 
-    loadActivity();
+    void loadActivity();
 
     return () => {
       active = false;
     };
   }, [activityId, hasValidActivityId, reloadSeed, t]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [activityId]);
+
+  useEffect(() => {
+    setIsReminderSet(hasActivityReminder(session?.userId ?? undefined, activityId));
+  }, [activityId, session?.userId]);
 
   const currentStock = activity
     ? Math.max(0, stockSnapshot?.stockRemaining ?? activity.stockRemaining)
@@ -331,6 +406,120 @@ export default function ActivityDetailPage() {
       window.clearInterval(timer);
     };
   }, [activity, stockPollInterval]);
+
+  const mapModel = useMemo(() => buildMapModel(activity), [activity]);
+
+  const handleAuthRedirect = () => {
+    const redirectTo = `${location.pathname}${location.search}${location.hash}`;
+    navigate(buildLoginPath({ redirectTo }), {
+      state: {
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+        },
+      },
+    });
+  };
+
+  const handlePrimaryAction = async () => {
+    if (!activity || !enrollActionState) {
+      return;
+    }
+
+    setActionFeedback(null);
+
+    if (enrollActionState === 'upcoming') {
+      if (!isAuthenticated) {
+        handleAuthRedirect();
+        return;
+      }
+
+      const created = saveActivityReminder(session?.userId ?? undefined, {
+        activityId: activity.id,
+        title: activity.title,
+        openAt: activity.enrollOpenAt,
+      });
+
+      setIsReminderSet(true);
+      setActionFeedback({
+        tone: 'success',
+        message: created
+          ? t('activityDetail.reminderSaved', { time: formatLongDate(activity.enrollOpenAt) })
+          : t('activityDetail.reminderExists'),
+      });
+      return;
+    }
+
+    if (enrollActionState !== 'selling') {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      handleAuthRedirect();
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await createEnrollment(activity.id);
+
+      if (typeof result.stockRemaining === 'number') {
+        setStockSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                stockRemaining: result.stockRemaining ?? current.stockRemaining,
+              }
+            : current,
+        );
+      }
+
+      if (result.code === 1101) {
+        setActionFeedback({
+          tone: 'error',
+          message: result.message,
+        });
+
+        const stock = await getActivityStock(activity.id).catch(() => null);
+        if (stock) {
+          setStockSnapshot(stock);
+        }
+        return;
+      }
+
+      if (result.orderNo) {
+        const order = await findOrderByOrderNo(result.orderNo).catch(() => null);
+        if (order) {
+          navigate(`/app/orders/${order.id}`, {
+            state: { activityTitle: activity.title },
+          });
+          return;
+        }
+      }
+
+      if (result.enrollmentId) {
+        navigate(`/app/enroll-status/${result.enrollmentId}`, {
+          state: { activityTitle: activity.title },
+        });
+        return;
+      }
+
+      setActionFeedback({
+        tone: 'success',
+        message: t('activityDetail.enrollSubmitted'),
+      });
+    } catch (error) {
+      const errorWithResponse = error as { response?: { data?: { message?: string } } };
+      setActionFeedback({
+        tone: 'error',
+        message: errorWithResponse.response?.data?.message || t('activityDetail.enrollError'),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (viewState === 'loading') {
     return <ActivityDetailSkeleton />;
@@ -400,11 +589,11 @@ export default function ActivityDetailPage() {
     );
   }
 
-  const actionTitle =
+  const actionHeading =
     enrollActionState === 'upcoming'
       ? t('activityDetail.actionUpcoming')
-      : enrollActionState === 'sellingPending'
-        ? t('activityDetail.actionPending')
+      : enrollActionState === 'selling'
+        ? t('activityDetail.enrollNow')
         : enrollActionState === 'soldOut'
           ? t('activityDetail.actionSoldOut')
           : enrollActionState === 'closed'
@@ -413,27 +602,42 @@ export default function ActivityDetailPage() {
 
   const actionDescription =
     enrollActionState === 'upcoming'
-      ? t('activityDetail.actionUpcomingHint', {
-          time: formatLongDate(activity.enrollOpenAt),
-        })
-      : enrollActionState === 'sellingPending'
-        ? t('activityDetail.actionPendingHint')
+      ? isReminderSet
+        ? t('activityDetail.reminderSavedHint')
+        : isAuthenticated
+          ? t('activityDetail.reminderHintReady')
+          : t('activityDetail.reminderHint')
+      : enrollActionState === 'selling'
+        ? isAuthenticated
+          ? t('activityDetail.paymentHint')
+          : t('activityDetail.loginHint')
         : enrollActionState === 'soldOut'
-          ? t('activityDetail.actionSoldOutHint')
+          ? t('activityDetail.soldOutHint')
           : enrollActionState === 'closed'
-            ? t('activityDetail.actionClosedHint')
+            ? t('activityDetail.closedHint')
             : t('activityDetail.actionUnavailableHint', {
                 status: t(`status.${activity.status}`),
               });
 
-  const actionButtonTone =
-    enrollActionState === 'sellingPending'
-      ? 'bg-rose-500 text-white'
-      : enrollActionState === 'upcoming'
-        ? 'border border-amber-200 bg-amber-50 text-amber-800'
+  const actionButtonLabel =
+    enrollActionState === 'upcoming'
+      ? isReminderSet
+        ? t('activityDetail.reminderSet')
+        : t('activityDetail.remindMe')
+      : enrollActionState === 'selling'
+        ? t('activityDetail.enrollNow')
         : enrollActionState === 'soldOut'
-          ? 'border border-slate-200 bg-slate-100 text-slate-500'
-          : 'border border-slate-200 bg-slate-100 text-slate-600';
+          ? t('activityDetail.soldOut')
+          : t('activityDetail.enrollUnavailable');
+
+  const actionButtonClassName =
+    enrollActionState === 'selling'
+      ? 'bg-rose-500 text-white hover:bg-rose-600'
+      : enrollActionState === 'upcoming'
+        ? isReminderSet
+          ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'bg-slate-900 text-white hover:bg-slate-800'
+        : 'border border-slate-200 bg-slate-100 text-slate-400';
 
   const pollingHint =
     stockPollInterval === 8000
@@ -561,71 +765,105 @@ export default function ActivityDetailPage() {
                 {activity.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm"
+                    className="rounded-full border border-rose-100 bg-white px-3 py-1 text-xs font-semibold text-rose-600"
                   >
-                    #{tag}
+                    {tag}
                   </span>
                 ))}
               </div>
             ) : null}
           </div>
+
+          <section id="activity-location" className="space-y-4 border-t border-slate-100 pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-2xl">
+                <h2 className="text-xl font-black text-slate-900">
+                  {t('activityDetail.locationTitle')}
+                </h2>
+                <p className="mt-3 leading-8 text-slate-600">{activity.location}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-500">
+                  {t('activityDetail.locationDescription')}
+                </p>
+                {mapModel.hasCoordinates ? (
+                  <p className="mt-2 text-sm text-slate-400">
+                    {t('activityDetail.latitude')}: {mapModel.latitudeLabel}
+                    {' · '}
+                    {t('activityDetail.longitude')}: {mapModel.longitudeLabel}
+                  </p>
+                ) : null}
+              </div>
+
+              <a
+                href={mapModel.openUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-200 hover:text-rose-600"
+              >
+                {t('activityDetail.openMap')}
+                <ExternalLink size={14} />
+              </a>
+            </div>
+
+            {mapModel.embedUrl ? (
+              <div className="overflow-hidden rounded-[24px] border border-slate-200">
+                <iframe
+                  title={t('activityDetail.mapFrameTitle', { location: activity.location })}
+                  src={mapModel.embedUrl}
+                  className="h-[320px] w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-200 px-5 py-8 text-center text-sm leading-7 text-slate-500">
+                {t('activityDetail.mapUnavailable')}
+              </div>
+            )}
+          </section>
         </article>
 
         <aside className="space-y-5">
-          <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              {t('activityDetail.ticketPrice')}
+            </p>
+            <p className="mt-2 text-4xl font-black text-rose-600">
+              {formatCurrency(activity.price)}
+            </p>
+          </div>
+
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-slate-400">
+                <p className="text-sm font-semibold text-slate-500">
                   {t('activityDetail.stockLabel')}
                 </p>
-                <p className={`mt-2 text-4xl font-black ${stockMeta.textTone}`}>
+                <p className={`mt-2 text-3xl font-black ${stockMeta.textTone}`}>
                   {currentStock.toLocaleString()}
                 </p>
               </div>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${stockMeta.badgeTone}`}
-              >
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stockMeta.badgeTone}`}>
                 {t(stockMeta.labelKey)}
               </span>
             </div>
 
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              {t(stockMeta.helperKey)}
-            </p>
-
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="mt-4 h-2 rounded-full bg-slate-100">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${stockMeta.tone}`}
+                className={`h-2 rounded-full transition-all ${stockMeta.tone}`}
                 style={{ width: `${Math.max(0, Math.min(100, stockMeta.percent))}%` }}
               />
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
-              <span>
-                {t('activityDetail.stockRemainingLabel', {
-                  count: currentStock.toLocaleString(),
-                })}
-              </span>
-              <span>
-                {t('activityDetail.capacityLabel', {
-                  count: activity.maxCapacity.toLocaleString(),
-                })}
-              </span>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-500">
-              <div className="flex items-center gap-2 text-slate-600">
-                <RefreshCcw size={14} />
-                <span>{pollingHint}</span>
-              </div>
-              <p className="mt-1">
-                {stockSnapshot?.lastUpdated
-                  ? t('activityDetail.stockUpdated', {
-                      time: formatLongDate(stockSnapshot.lastUpdated),
-                    })
-                  : t('activityDetail.stockPendingSync')}
-              </p>
-            </div>
+            <p className="mt-3 text-xs leading-6 text-slate-500">
+              {t(stockMeta.helperKey)}
+            </p>
+            <p className="mt-2 text-xs leading-6 text-slate-400">
+              {stockSnapshot?.lastUpdated
+                ? t('activityDetail.stockUpdated', {
+                    time: formatLongDate(stockSnapshot.lastUpdated),
+                  })
+                : t('activityDetail.stockPendingSync')}
+            </p>
           </div>
 
           <ActivityCountdown
@@ -634,27 +872,49 @@ export default function ActivityDetailPage() {
             soldOut={isSoldOut}
           />
 
-          <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-400">
-                  {t('activityDetail.actionTitle')}
-                </p>
-                <p className="mt-2 text-2xl font-black text-slate-900">{actionTitle}</p>
-              </div>
-              <StatusChip status={activity.status} />
-            </div>
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              {t('activityDetail.actionTitle')}
+            </p>
+            <h2 className="mt-3 text-xl font-black text-slate-900">{actionHeading}</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-500">{actionDescription}</p>
 
-            <p className="mt-4 text-sm leading-7 text-slate-500">{actionDescription}</p>
+            {actionFeedback ? (
+              <div
+                className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+                  actionFeedback.tone === 'success'
+                    ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border border-amber-200 bg-amber-50 text-amber-700'
+                }`}
+              >
+                {actionFeedback.message}
+              </div>
+            ) : null}
 
             <button
               type="button"
-              disabled
-              className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition disabled:cursor-not-allowed ${actionButtonTone}`}
+              onClick={() => void handlePrimaryAction()}
+              className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${actionButtonClassName}`}
+              disabled={
+                isSubmitting ||
+                enrollActionState === 'soldOut' ||
+                enrollActionState === 'closed' ||
+                enrollActionState === 'unavailable'
+              }
             >
-              <Ticket size={16} />
-              {actionTitle}
+              {isSubmitting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : enrollActionState === 'upcoming' ? (
+                <BellRing size={16} />
+              ) : (
+                <Ticket size={16} />
+              )}
+              {isSubmitting ? t('activityDetail.processing') : actionButtonLabel}
             </button>
+
+            <div className="mt-4 rounded-2xl bg-[#fffaf7] px-4 py-4 text-sm leading-7 text-slate-500">
+              {pollingHint}
+            </div>
           </div>
         </aside>
       </section>
