@@ -1,6 +1,31 @@
-import { AUTH_SESSION_STORAGE_KEY, LEGACY_TOKEN_STORAGE_KEY } from '../constants/auth';
-
 import axios from 'axios';
+import {
+  buildLoginPath,
+  clearStoredAuthSession,
+  getStoredAuthSession,
+} from '../utils/auth';
+
+const AUTH_REDIRECT_BYPASS_HEADER = 'X-UAAD-Skip-Auth-Redirect';
+
+function shouldSkipAuthRedirect(headers?: unknown) {
+  if (!headers) {
+    return false;
+  }
+
+  if (typeof headers === 'object' && headers !== null && 'get' in headers) {
+    const headerValue = (headers as { get?: (name: string) => string | undefined }).get?.(
+      AUTH_REDIRECT_BYPASS_HEADER,
+    );
+    return headerValue === '1';
+  }
+
+  if (typeof headers === 'object' && headers !== null) {
+    const record = headers as Record<string, string | undefined>;
+    return record[AUTH_REDIRECT_BYPASS_HEADER] === '1';
+  }
+
+  return false;
+}
 
 const api = axios.create({
   baseURL: 'http://localhost:8080/api/v1',
@@ -9,27 +34,10 @@ const api = axios.create({
   },
 });
 
-function readStoredToken() {
-  const serializedSession = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-
-  if (serializedSession) {
-    try {
-      const parsed = JSON.parse(serializedSession) as { token?: string };
-      if (typeof parsed.token === 'string' && parsed.token) {
-        return parsed.token;
-      }
-    } catch {
-      localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-    }
-  }
-
-  return localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY);
-}
-
 // Add a request interceptor to include the JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = readStoredToken();
+    const token = getStoredAuthSession()?.token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -45,13 +53,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
+      const skipAuthRedirect = shouldSkipAuthRedirect(error.config?.headers);
+
       // Handle 401 Unauthorized
-      if (error.response.status === 401) {
-        localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
-        // Simple client-side redirect since this runs outside context
+      if (error.response.status === 401 && !skipAuthRedirect) {
+        clearStoredAuthSession();
         if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
+          const redirectTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          window.location.replace(
+            buildLoginPath({ redirectTo, reason: 'session_expired' })
+          );
         }
       }
       
@@ -66,3 +77,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+export { AUTH_REDIRECT_BYPASS_HEADER };

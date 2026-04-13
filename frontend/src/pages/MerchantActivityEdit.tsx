@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MerchantForm } from '../components/MerchantForm';
 import { getActivityDetail, updateMerchantActivity } from '../api/endpoints';
-import type { MerchantActivityInput } from '../types';
+import { MerchantPageHeader } from '../components/merchant/MerchantPageHeader';
+import { MerchantStateCard } from '../components/merchant/MerchantStateCard';
+import { StatusChip } from '../components/public/StatusChip';
+import type { ActivityStatus, MerchantActivityInput } from '../types';
+import { resolveApiErrorMessage } from '../utils/api';
 
 export default function MerchantActivityEditPage() {
   const { t } = useTranslation();
@@ -12,62 +17,133 @@ export default function MerchantActivityEditPage() {
   const activityId = Number(id);
 
   const [initialValue, setInitialValue] = useState<MerchantActivityInput | null>(null);
+  const [activityStatus, setActivityStatus] = useState<ActivityStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
+  const loadActivity = useCallback(async () => {
     if (!Number.isFinite(activityId)) {
+      setLoadError(t('merchant.invalidIdDescription'));
+      setLoading(false);
       return;
     }
 
-    getActivityDetail(activityId)
-      .then((activity) => {
-        setInitialValue({
-          title: activity.title,
-          description: activity.description,
-          coverUrl: activity.coverUrl ?? '',
-          location: activity.location,
-          category: activity.category,
-          maxCapacity: activity.maxCapacity,
-          price: activity.price,
-          enrollOpenAt: activity.enrollOpenAt,
-          enrollCloseAt: activity.enrollCloseAt,
-          activityAt: activity.activityAt,
-        });
-      })
-      .finally(() => setLoading(false));
-  }, [activityId]);
+    setLoading(true);
+    setLoadError('');
+
+    try {
+      const activity = await getActivityDetail(activityId);
+      setInitialValue({
+        title: activity.title,
+        description: activity.description,
+        coverUrl: activity.coverUrl ?? '',
+        location: activity.location,
+        category: activity.category,
+        maxCapacity: activity.maxCapacity,
+        price: activity.price,
+        enrollOpenAt: activity.enrollOpenAt,
+        enrollCloseAt: activity.enrollCloseAt,
+        activityAt: activity.activityAt,
+      });
+      setActivityStatus(activity.status);
+    } catch (error) {
+      setLoadError(
+        resolveApiErrorMessage(error, {
+          fallback: t('merchant.editLoadFailed'),
+          networkFallback: t('merchant.networkError'),
+          notFoundFallback: t('merchant.invalidIdDescription'),
+        }),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [activityId, t]);
+
+  useEffect(() => {
+    void loadActivity();
+  }, [activityId, loadActivity]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
-      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_58%,#fff1eb_100%)] px-6 py-8 shadow-[0_24px_60px_-40px_rgba(225,29,72,0.28)] lg:px-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-400">UAAD</p>
-        <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
-          {t('merchant.editActivity')}
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 lg:text-base">
-          {t('merchant.editSubtitle')}
-        </p>
-      </section>
+    <div className="space-y-5">
+      <MerchantPageHeader
+        eyebrow={t('merchant.panel')}
+        title={t('merchant.editActivity')}
+        description={t('merchant.editSubtitle')}
+        actions={activityStatus ? <StatusChip status={activityStatus} theme="dark" /> : null}
+      />
 
-      {!Number.isFinite(activityId) ? (
-        <div className="rounded-[32px] border border-amber-200 bg-amber-50 p-8 text-sm text-amber-700">
-          {t('activityDetail.invalidId')}
-        </div>
-      ) : loading || !initialValue ? (
-        <div className="rounded-[32px] border border-rose-100 bg-white p-8 text-slate-500 shadow-sm">
-          {t('merchant.loading')}
-        </div>
+      {loading ? (
+        <MerchantStateCard
+          tone="loading"
+          title={t('merchant.loadingTitle')}
+          description={t('merchant.loadingDescription')}
+        />
+      ) : loadError ? (
+        <MerchantStateCard
+          tone="error"
+          title={
+            Number.isFinite(activityId) ? t('merchant.editLoadFailedTitle') : t('merchant.invalidIdTitle')
+          }
+          description={loadError}
+          action={
+            <div className="flex flex-wrap justify-center gap-3">
+              {Number.isFinite(activityId) ? (
+                <button
+                  type="button"
+                  onClick={() => void loadActivity()}
+                  className="rounded-full bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-400"
+                >
+                  {t('merchant.retry')}
+                </button>
+              ) : null}
+              <Link
+                to="/merchant/activities"
+                className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+              >
+                <ArrowLeft size={15} />
+                {t('merchant.backToList')}
+              </Link>
+            </div>
+          }
+        />
+      ) : !initialValue ? (
+        <MerchantStateCard
+          tone="empty"
+          title={t('merchant.invalidIdTitle')}
+          description={t('merchant.invalidIdDescription')}
+          action={
+            <Link
+              to="/merchant/activities"
+              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+            >
+              <ArrowLeft size={15} />
+              {t('merchant.backToList')}
+            </Link>
+          }
+        />
       ) : (
         <MerchantForm
           initialValue={initialValue}
+          activityStatus={activityStatus}
           loading={submitting}
           submitLabel={t('merchant.editSubmit')}
           onSubmit={async (payload) => {
             setSubmitting(true);
-            await updateMerchantActivity(activityId, payload);
-            setSubmitting(false);
-            navigate('/merchant/activities', { state: { message: t('merchant.editSuccess') } });
+            try {
+              const result = await updateMerchantActivity(activityId, payload);
+              navigate('/merchant/activities', {
+                state: {
+                  feedback: {
+                    tone: 'success',
+                    title: t('merchant.successTitle'),
+                    message: result.message || t('merchant.editSuccess'),
+                  },
+                },
+              });
+            } finally {
+              setSubmitting(false);
+            }
           }}
         />
       )}

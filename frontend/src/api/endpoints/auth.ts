@@ -1,5 +1,7 @@
 import api from '../axios';
-import { normalizeUserRole, type UserProfile, type UserRole } from '../../types';
+import { AUTH_REDIRECT_BYPASS_HEADER } from '../axios';
+import type { AuthRole, AuthSession } from '../../types/auth';
+import { normalizeUserRole, type UserProfile } from '../../types/user';
 
 interface BackendPayload<T> {
   code: number;
@@ -7,18 +9,20 @@ interface BackendPayload<T> {
   data: T;
 }
 
+interface LoginResponseDTO {
+  token: string;
+  expires_at: string;
+  user_id: number;
+  role: AuthRole;
+  username: string;
+}
+
 export interface LoginRequest {
   phone: string;
   password: string;
 }
 
-export interface LoginResponse {
-  token: string;
-  expires_at: string;
-  user_id: number;
-  role: UserRole;
-  username: string;
-}
+export type LoginResponse = AuthSession;
 
 export interface RegisterRequest {
   username: string;
@@ -40,13 +44,20 @@ interface UserProfilePayload {
   created_at: string;
 }
 
+interface GetProfileOptions {
+  skipAuthRedirect?: boolean;
+}
+
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const response = await api.post<BackendPayload<LoginResponse>>('/auth/login', payload);
-  const data = response.data.data;
+  const response = await api.post<BackendPayload<LoginResponseDTO>>('/auth/login', payload);
+  const { token, expires_at: expiresAt, user_id: userId, role, username } = response.data.data;
 
   return {
-    ...data,
-    role: normalizeUserRole(data.role),
+    token,
+    expiresAt,
+    userId,
+    role: normalizeUserRole(role),
+    username,
   };
 }
 
@@ -55,8 +66,12 @@ export async function register(payload: RegisterRequest): Promise<RegisterRespon
   return response.data.data;
 }
 
-export async function getProfile(): Promise<UserProfile> {
-  const response = await api.get<BackendPayload<UserProfilePayload>>('/auth/profile');
+export async function getProfile(options: GetProfileOptions = {}): Promise<UserProfile> {
+  const response = await api.get<BackendPayload<UserProfilePayload>>('/auth/profile', {
+    headers: options.skipAuthRedirect
+      ? { [AUTH_REDIRECT_BYPASS_HEADER]: '1' }
+      : undefined,
+  });
   const profile = response.data.data;
 
   return {

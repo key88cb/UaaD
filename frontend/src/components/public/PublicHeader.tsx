@@ -192,7 +192,9 @@ export function PublicHeader({
   };
 
   const accountLabel = session
-    ? t(`profile.roles.${session.role}`, session.role)
+    ? session.role
+      ? t(`profile.roles.${session.role}`)
+      : t('auth.login')
     : t('auth.login');
   const avatarSeed = session?.username?.trim().charAt(0).toUpperCase() || 'U';
   const avatarUrl = useAvatarObjectUrl(preferences.avatarDataUrl);
@@ -362,12 +364,12 @@ export function PublicHeader({
                 </div>
 
                 <div className="border-t border-rose-100 p-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActivePanel(null);
-                        navigate('/app/notifications');
-                      }}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePanel(null);
+                      navigate('/app/notifications');
+                    }}
                     className="w-full rounded-full bg-rose-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-600"
                   >
                     {t('public.viewAll')}
@@ -399,7 +401,7 @@ export function PublicHeader({
                 <>
                   <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_top,_#ffcadb,_#fb7185_62%,_#f97316)] text-sm font-black text-white">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt={session?.username} className="h-full w-full object-cover" />
+                      <img src={avatarUrl} alt={session?.username ?? 'UAAD'} className="h-full w-full object-cover" />
                     ) : (
                       avatarSeed
                     )}
@@ -420,13 +422,13 @@ export function PublicHeader({
                   <div className="flex items-center gap-4">
                     <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_top,_#ffcadb,_#fb7185_62%,_#f97316)] text-lg font-black text-white">
                       {avatarUrl ? (
-                        <img src={avatarUrl} alt={session.username} className="h-full w-full object-cover" />
+                        <img src={avatarUrl} alt={session.username ?? 'UAAD'} className="h-full w-full object-cover" />
                       ) : (
                         avatarSeed
                       )}
                     </span>
                     <div>
-                      <p className="text-base font-black text-slate-900">{session.username}</p>
+                      <p className="text-base font-black text-slate-900">{session.username ?? 'UAAD'}</p>
                       <p className="mt-1 text-sm text-slate-500">{accountLabel}</p>
                     </div>
                   </div>

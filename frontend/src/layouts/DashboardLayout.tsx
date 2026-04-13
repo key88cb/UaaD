@@ -20,7 +20,7 @@ export default function DashboardLayout() {
 
   const menuItems = [
     { icon: LayoutDashboard, label: t('dashboard.overview'), path: '/app/overview' },
-    { icon: Calendar, label: t('dashboard.activities'), path: '/activities' },
+    { icon: Calendar, label: t('dashboard.activities'), path: '/app/activities' },
     { icon: Bell, label: t('dashboard.notifications'), path: '/app/notifications' },
     { icon: User, label: t('dashboard.profile'), path: '/app/profile' },
     { icon: Settings, label: t('dashboard.settings'), path: '/app/settings' },

@@ -84,20 +84,20 @@ const DashboardPage = () => {
   }, [t]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl animate-fade-in space-y-8 pb-12">
-      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_58%,#fff1eb_100%)] px-6 py-8 shadow-[0_24px_60px_-40px_rgba(225,29,72,0.28)] lg:px-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-400">UAAD</p>
-        <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
+    <div className="w-full animate-fade-in space-y-8 pb-12">
+      <section className="overflow-hidden rounded-[32px] border border-slate-800/80 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_34%),radial-gradient(circle_at_82%_18%,rgba(168,85,247,0.16),transparent_28%),linear-gradient(160deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] px-6 py-8 shadow-[0_28px_90px_-48px_rgba(15,23,42,0.98)] lg:px-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300/80">UAAD</p>
+        <h2 className="mt-3 text-3xl font-black tracking-tight text-white">
           {t('dashboard.overview')}
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 lg:text-base">
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 lg:text-base">
           {t('dashboard.welcome')}
         </p>
       </section>
 
       {loading ? (
-        <div className="flex items-center justify-center rounded-[32px] border border-rose-100 bg-white px-6 py-14 shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+        <div className="flex items-center justify-center rounded-[32px] border border-slate-800 bg-slate-900/50 px-6 py-14 shadow-2xl backdrop-blur-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
         </div>
       ) : (
         <section className="grid gap-5 lg:grid-cols-3">
@@ -107,14 +107,14 @@ const DashboardPage = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ y: -4 }}
-              className="rounded-[28px] border border-rose-100 bg-white p-6 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.5)]"
+              className={`rounded-[28px] border border-white/6 bg-gradient-to-br ${stat.color} p-6 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.95)] backdrop-blur-sm`}
             >
-              <p className="text-sm font-semibold text-slate-400">{stat.label}</p>
+              <p className="text-sm font-semibold text-slate-300">{stat.label}</p>
               <div className="mt-4 flex items-end justify-between gap-4">
-                <span className="text-4xl font-black tracking-tight text-slate-900">
+                <span className="text-4xl font-black tracking-tight text-white">
                   {stat.value}
                 </span>
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-rose-500">
+                <span className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-200">
                   {stat.trend}
                 </span>
               </div>
@@ -123,9 +123,9 @@ const DashboardPage = () => {
         </section>
       )}
 
-      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-white shadow-sm">
-        <div className="border-b border-rose-100 px-6 py-6 lg:px-8">
-          <h3 className="text-2xl font-black tracking-tight text-slate-900">
+      <section className="overflow-hidden rounded-[32px] border border-slate-800 bg-slate-900/45 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.98)] backdrop-blur-sm">
+        <div className="border-b border-white/6 px-6 py-6 lg:px-8">
+          <h3 className="text-2xl font-black tracking-tight text-white">
             {t('dashboard.highlights')}
           </h3>
         </div>
@@ -133,10 +133,10 @@ const DashboardPage = () => {
         <div className="px-6 py-6 lg:px-8">
           {loading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-rose-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
           ) : error ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-200">
               {error}
             </div>
           ) : (
@@ -147,22 +147,22 @@ const DashboardPage = () => {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.08 }}
-                  className="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[#fffaf7] p-5 transition hover:border-rose-200 hover:bg-white sm:flex-row sm:items-center"
+                  className="flex flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-950/55 p-5 transition hover:border-blue-500/35 hover:bg-slate-950/80 sm:flex-row sm:items-center"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,_#ffcadb,_#fb7185_62%,_#f97316)] text-lg font-black text-white">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.92),_rgba(99,102,241,0.78)_55%,_rgba(15,23,42,1))] text-lg font-black text-white shadow-lg shadow-blue-950/60">
                     {activity.title.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-lg font-bold text-slate-900">{activity.title}</h4>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
+                    <h4 className="text-lg font-bold text-slate-100">{activity.title}</h4>
+                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-400">
                       {activity.description}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    <span className="rounded-full border border-white/8 bg-slate-900/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
                       {formatLongDate(activity.activityAt)}
                     </span>
-                    <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-rose-500">
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">
                       {t(`status.${activity.status}`)}
                     </span>
                   </div>

@@ -6,6 +6,13 @@ import { getActivityDetail, getOrderDetail, payOrder } from '../api/endpoints';
 import type { ActivityDetail, OrderItem } from '../types';
 import { formatExactCurrency, formatLongDate } from '../utils/formatters';
 
+const STATUS_STYLES: Record<OrderItem['status'], string> = {
+  PENDING: 'border-amber-500/20 bg-amber-500/10 text-amber-200',
+  PAID: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+  CLOSED: 'border-slate-700 bg-slate-800/80 text-slate-300',
+  REFUNDED: 'border-sky-500/20 bg-sky-500/10 text-sky-200',
+};
+
 export default function OrderDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -125,8 +132,8 @@ export default function OrderDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl space-y-5">
-        <div className="h-52 animate-pulse rounded-[32px] bg-rose-100/70" />
-        <div className="h-64 animate-pulse rounded-[32px] bg-white" />
+        <div className="h-52 animate-pulse rounded-[32px] bg-slate-800/80" />
+        <div className="h-64 animate-pulse rounded-[32px] bg-slate-900/60" />
       </div>
     );
   }
@@ -134,11 +141,11 @@ export default function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="mx-auto flex min-h-[55vh] max-w-3xl flex-col items-center justify-center gap-5 px-4 text-center">
-        <p className="text-2xl font-bold text-slate-900">{t('public.errorTitle')}</p>
-        <p className="text-slate-500">{error || t('orders.detailUnavailable')}</p>
+        <p className="text-2xl font-bold text-white">{t('public.errorTitle')}</p>
+        <p className="text-slate-300">{error || t('orders.detailUnavailable')}</p>
         <Link
           to="/app/orders"
-          className="rounded-full bg-rose-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
+          className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-400"
         >
           {t('orders.backToOrders')}
         </Link>
@@ -150,32 +157,32 @@ export default function OrderDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-12">
-      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_58%,#fff1eb_100%)] shadow-[0_24px_60px_-40px_rgba(225,29,72,0.28)]">
+      <section className="overflow-hidden rounded-[32px] border border-slate-800 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_30%),linear-gradient(160deg,rgba(15,23,42,0.97),rgba(2,6,23,0.97))] shadow-[0_28px_90px_-48px_rgba(15,23,42,0.98)]">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_minmax(0,0.9fr)]">
           <div className="px-6 py-8 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-400">UAAD</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300/80">UAAD</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-white">
               {t('orders.detailTitle')}
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 lg:text-base">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 lg:text-base">
               {activity?.title || t('orders.detailSubtitle')}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${STATUS_STYLES[order.status]}`}>
                 {t(`orders.status.${order.status}`)}
               </span>
-              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <span className="rounded-full border border-white/8 bg-slate-950/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                 {order.orderNo}
               </span>
             </div>
           </div>
 
-          <div className="min-h-[220px] bg-[#fffaf7]">
+          <div className="min-h-[220px] bg-slate-950/80">
             {activity?.coverUrl ? (
               <img src={activity.coverUrl} alt={activity.title} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,_#ffe1ea,_#fffaf7_58%,_#fff1eb)]">
-                <ReceiptText size={52} className="text-rose-300" />
+              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.35),_rgba(15,23,42,0.2)_45%,_rgba(2,6,23,1))]">
+                <ReceiptText size={52} className="text-slate-500" />
               </div>
             )}
           </div>
@@ -183,29 +190,29 @@ export default function OrderDetailPage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <article className="space-y-6 rounded-[32px] border border-rose-100 bg-white p-6 shadow-sm lg:p-8">
+        <article className="space-y-6 rounded-[32px] border border-slate-800 bg-slate-900/45 p-6 shadow-[0_20px_60px_-36px_rgba(15,23,42,0.95)] lg:p-8">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[24px] bg-[#fffaf7] p-5">
+            <div className="rounded-[24px] border border-slate-800 bg-slate-950/60 p-5">
               <p className="text-sm font-semibold text-slate-400">{t('orders.amount')}</p>
-              <p className="mt-2 text-3xl font-black text-slate-900">
+              <p className="mt-2 text-3xl font-black text-white">
                 {formatExactCurrency(order.amount)}
               </p>
             </div>
-            <div className="rounded-[24px] bg-[#fffaf7] p-5">
+            <div className="rounded-[24px] border border-slate-800 bg-slate-950/60 p-5">
               <p className="text-sm font-semibold text-slate-400">{t('orders.createdLabel')}</p>
-              <p className="mt-2 text-lg font-bold text-slate-900">
+              <p className="mt-2 text-lg font-bold text-white">
                 {formatLongDate(order.createdAt)}
               </p>
             </div>
-            <div className="rounded-[24px] bg-[#fffaf7] p-5">
+            <div className="rounded-[24px] border border-slate-800 bg-slate-950/60 p-5">
               <p className="text-sm font-semibold text-slate-400">{t('orders.expireLabel')}</p>
-              <p className="mt-2 text-lg font-bold text-slate-900">
+              <p className="mt-2 text-lg font-bold text-white">
                 {formatLongDate(order.expiredAt)}
               </p>
             </div>
-            <div className="rounded-[24px] bg-[#fffaf7] p-5">
+            <div className="rounded-[24px] border border-slate-800 bg-slate-950/60 p-5">
               <p className="text-sm font-semibold text-slate-400">{t('orders.paymentStatus')}</p>
-              <p className="mt-2 text-lg font-bold text-slate-900">
+              <p className="mt-2 text-lg font-bold text-white">
                 {order.status === 'PAID' && order.paidAt
                   ? t('orders.paidAt', { time: formatLongDate(order.paidAt) })
                   : t(`orders.statusDescription.${order.status}`)}
@@ -217,17 +224,17 @@ export default function OrderDetailPage() {
             <div
               className={`rounded-[24px] px-5 py-4 text-sm ${
                 feedback.tone === 'success'
-                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border border-amber-200 bg-amber-50 text-amber-700'
+                  ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
+                  : 'border border-amber-500/20 bg-amber-500/10 text-amber-200'
               }`}
             >
               {feedback.message}
             </div>
           ) : null}
 
-          <div className="rounded-[28px] border border-slate-200 bg-[#fffaf7] p-5">
-            <p className="text-sm font-semibold text-slate-500">{t('orders.nextStepTitle')}</p>
-            <p className="mt-2 text-sm leading-7 text-slate-500">
+          <div className="rounded-[28px] border border-slate-800 bg-slate-950/60 p-5">
+            <p className="text-sm font-semibold text-slate-300">{t('orders.nextStepTitle')}</p>
+            <p className="mt-2 text-sm leading-7 text-slate-400">
               {canPay
                 ? t('orders.nextStepPending')
                 : order.status === 'PAID'
@@ -237,32 +244,32 @@ export default function OrderDetailPage() {
           </div>
         </article>
 
-        <aside className="space-y-5 rounded-[32px] border border-rose-100 bg-white p-6 shadow-sm">
-          <div className="rounded-[24px] bg-rose-50 p-5">
-            <p className="text-sm font-semibold text-slate-500">{t('orders.checkoutPanel')}</p>
+        <aside className="space-y-5 rounded-[32px] border border-slate-800 bg-slate-900/45 p-6 shadow-[0_20px_60px_-36px_rgba(15,23,42,0.95)]">
+          <div className="rounded-[24px] border border-slate-800 bg-slate-950/60 p-5">
+            <p className="text-sm font-semibold text-slate-300">{t('orders.checkoutPanel')}</p>
             {canPay ? (
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-white py-3">
-                  <p className="text-xl font-black text-slate-900">{countdown.hours}</p>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 py-3">
+                  <p className="text-xl font-black text-white">{countdown.hours}</p>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                     {t('activityDetail.hour')}
                   </p>
                 </div>
-                <div className="rounded-xl bg-white py-3">
-                  <p className="text-xl font-black text-slate-900">{countdown.minutes}</p>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 py-3">
+                  <p className="text-xl font-black text-white">{countdown.minutes}</p>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                     {t('activityDetail.minute')}
                   </p>
                 </div>
-                <div className="rounded-xl bg-white py-3">
-                  <p className="text-xl font-black text-slate-900">{countdown.seconds}</p>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 py-3">
+                  <p className="text-xl font-black text-white">{countdown.seconds}</p>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                     {t('activityDetail.second')}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-2xl bg-white px-4 py-4 text-sm text-slate-500">
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-4 text-sm text-slate-300">
                 {order.status === 'PAID'
                   ? t('orders.paidSummary')
                   : t('orders.closedSummary')}
@@ -275,13 +282,13 @@ export default function OrderDetailPage() {
               type="button"
               onClick={handlePay}
               disabled={paying}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-rose-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CreditCard size={16} />
               {paying ? t('orders.paying') : t('orders.payNow')}
             </button>
           ) : (
-            <div className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-6 py-3 text-sm font-bold text-emerald-700">
+            <div className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-6 py-3 text-sm font-bold text-emerald-200">
               <CheckCircle2 size={16} />
               {order.status === 'PAID' ? t('orders.payCompleted') : t('orders.unavailableAction')}
             </div>
@@ -289,7 +296,7 @@ export default function OrderDetailPage() {
 
           <Link
             to="/app/orders"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-rose-100 bg-white px-6 py-3 text-sm font-semibold text-slate-600 transition hover:border-rose-200 hover:text-rose-600"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-700 bg-slate-950/60 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-blue-500/35 hover:text-white"
           >
             <Clock3 size={16} />
             {t('orders.backToOrders')}

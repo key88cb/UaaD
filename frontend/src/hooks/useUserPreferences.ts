@@ -16,7 +16,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   smsNotifications: false,
 };
 
-function createStorageKey(userId: number | undefined) {
+function createStorageKey(userId: number | null | undefined) {
   return `${USER_PREFERENCES_STORAGE_PREFIX}.${userId ?? 'guest'}`;
 }
 
