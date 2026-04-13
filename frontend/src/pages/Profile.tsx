@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mail, Phone, Shield, User } from 'lucide-react';
+import { Camera, Mail, Phone, Shield, Trash2, User } from 'lucide-react';
 import { getProfile } from '../api/endpoints';
 import { useAuth } from '../context/AuthContext';
+import { useAvatarObjectUrl } from '../hooks/useAvatarObjectUrl';
+import { useUserPreferences } from '../hooks/useUserPreferences';
 import type { UserProfile } from '../types';
 
 function maskPhone(value: string) {
@@ -15,10 +17,15 @@ function maskPhone(value: string) {
 
 export default function ProfilePage() {
   const { t } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, session } = useAuth();
+  const { preferences, updatePreferences } = useUserPreferences();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [emailDraft, setEmailDraft] = useState(() => preferences.email);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackTone, setFeedbackTone] = useState<'success' | 'error'>('success');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,119 +52,225 @@ export default function ProfilePage() {
     };
   }, [t]);
 
-  const createdAtLabel = useMemo(() => {
-    if (!profile?.createdAt) {
-      return t('profile.unavailable');
+  const createdAtLabel = profile?.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString('zh-CN')
+    : t('profile.unavailable');
+  const displayName = profile?.username || session?.username || t('profile.unavailable');
+  const displayPhone = profile?.phone ? maskPhone(profile.phone) : t('profile.unavailable');
+  const displayEmail = preferences.email || t('profile.emailUnavailable');
+  const roleLabel = profile?.role
+    ? t(`profile.roles.${profile.role}`, profile.role)
+    : session?.role
+      ? t(`profile.roles.${session.role}`, session.role)
+      : t('profile.unavailable');
+  const avatarSeed = displayName.trim().charAt(0).toUpperCase() || '?';
+  const avatarUrl = useAvatarObjectUrl(preferences.avatarDataUrl);
+
+  const handleAvatarUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
     }
 
-    return new Date(profile.createdAt).toLocaleDateString('zh-CN');
-  }, [profile?.createdAt, t]);
+    const reader = new FileReader();
 
-  const displayName = profile?.username || t('profile.unavailable');
-  const displayPhone = profile?.phone ? maskPhone(profile.phone) : t('profile.unavailable');
-  const roleLabel = profile?.role ? t(`profile.roles.${profile.role}`, profile.role) : t('profile.unavailable');
-  const avatarSeed = (profile?.username || '?').trim().charAt(0).toUpperCase() || '?';
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      updatePreferences({ avatarDataUrl: result });
+      setFeedbackTone('success');
+      setFeedback(t('profile.avatarSaved'));
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleEmailSave = () => {
+    const trimmedEmail = emailDraft.trim();
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+
+    if (!isValidEmail) {
+      setFeedbackTone('error');
+      setFeedback(t('profile.invalidEmail'));
+      return;
+    }
+
+    updatePreferences({ email: trimmedEmail });
+    setFeedbackTone('success');
+    setFeedback(t('profile.emailSaved'));
+  };
 
   return (
-    <div className="w-full max-w-4xl mx-auto animate-fade-in pb-12">
-      <div className="mb-8 border-b border-white/5 pb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">{t('dashboard.profile')}</h2>
-        <p className="text-slate-400">{t('profile.subtitle')}</p>
-      </div>
+    <div className="mx-auto w-full max-w-6xl animate-fade-in space-y-8 pb-12">
+      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_58%,#fff1eb_100%)] px-6 py-8 shadow-[0_24px_60px_-40px_rgba(225,29,72,0.28)] lg:px-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-400">UAAD</p>
+        <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
+          {t('dashboard.profile')}
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 lg:text-base">
+          {t('profile.subtitle')}
+        </p>
+      </section>
+
+      {feedback ? (
+        <div
+          className={`rounded-2xl px-5 py-4 text-sm ${
+            feedbackTone === 'success'
+              ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {feedback}
+        </div>
+      ) : null}
 
       {error ? (
-        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-200">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
           {error}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="col-span-1">
-          <div className="bg-slate-900/40 rounded-2xl border border-slate-800 p-6 flex flex-col items-center text-center shadow-xl backdrop-blur-sm">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 ring-4 ring-slate-900 ring-offset-2 ring-offset-slate-950 flex items-center justify-center text-4xl text-white font-bold">
-              {avatarSeed}
+      <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div>
+          <div className="rounded-[32px] border border-rose-100 bg-white p-6 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_top,_#ffcadb,_#fb7185_62%,_#f97316)] text-4xl font-black text-white">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+              ) : (
+                avatarSeed
+              )}
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">
+            <h3 className="text-xl font-black text-slate-900">
               {loading ? t('profile.loading') : displayName}
             </h3>
-            <p className="text-slate-400 mb-4 leading-tight text-sm">
+            <p className="mt-2 text-sm leading-6 text-slate-500">
               {t('profile.memberSince', { date: createdAtLabel })}
             </p>
-            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-medium">
+            <span className="mt-4 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-rose-500">
               {roleLabel}
             </span>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
+              >
+                <Camera size={16} />
+                {t('profile.uploadAvatar')}
+              </button>
+              {avatarUrl ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    updatePreferences({ avatarDataUrl: '' });
+                    setFeedbackTone('success');
+                    setFeedback(t('profile.avatarRemoved'));
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-rose-100 bg-white px-4 py-2 text-sm font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+                >
+                  <Trash2 size={16} />
+                  {t('profile.removeAvatar')}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="col-span-2 space-y-6">
-          <div className="bg-slate-900/40 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur-sm">
-            <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <User size={20} className="text-blue-500" />
-              Identity Information
+        <div className="space-y-6">
+          <div className="rounded-[32px] border border-rose-100 bg-white p-6 shadow-sm">
+            <h4 className="mb-6 flex items-center gap-2 text-lg font-black text-slate-900">
+              <User size={20} className="text-rose-500" />
+              {t('profile.identityTitle')}
             </h4>
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-950/50 rounded-xl border border-slate-800">
+              <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-[#fffaf7] p-4 sm:flex-row sm:items-center">
                 <div>
-                  <p className="text-sm font-medium text-slate-400 mb-1">{t('profile.displayName')}</p>
-                  <p className="text-slate-100 font-medium tracking-wide">
+                  <p className="mb-1 text-sm font-medium text-slate-400">{t('profile.displayName')}</p>
+                  <p className="font-medium tracking-wide text-slate-900">
                     {loading ? t('profile.loading') : displayName}
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled
-                  className="text-slate-500 text-sm font-medium mt-2 sm:mt-0 cursor-not-allowed"
+                  className="mt-2 cursor-not-allowed text-sm font-medium text-slate-400 sm:mt-0"
                 >
-                  {t('profile.actions.pending')}
+                  {t('profile.actions.readOnly')}
                 </button>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-950/50 rounded-xl border border-slate-800">
+              <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-[#fffaf7] p-4 sm:flex-row sm:items-center">
                 <div>
-                  <p className="text-sm font-medium text-slate-400 flex items-center gap-2 mb-1">
+                  <p className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-400">
                     <Phone size={14} /> {t('profile.phone')}
                   </p>
-                  <p className="text-slate-100 font-medium tracking-wide">
+                  <p className="font-medium tracking-wide text-slate-900">
                     {loading ? t('profile.loading') : displayPhone}
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled
-                  className="text-slate-500 text-sm font-medium mt-2 sm:mt-0 cursor-not-allowed"
+                  className="mt-2 cursor-not-allowed text-sm font-medium text-slate-400 sm:mt-0"
                 >
-                  {t('profile.actions.pending')}
+                  {t('profile.actions.readOnly')}
                 </button>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-950/50 rounded-xl border border-slate-800">
-                <div>
-                  <p className="text-sm font-medium text-slate-400 flex items-center gap-2 mb-1">
+              <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-[#fffaf7] p-4 sm:flex-row sm:items-center">
+                <div className="w-full">
+                  <p className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-400">
                     <Mail size={14} /> {t('profile.email')}
                   </p>
-                  <p className="text-slate-100 font-medium tracking-wide">{t('profile.emailUnavailable')}</p>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="email"
+                      value={emailDraft}
+                      onChange={(event) => setEmailDraft(event.target.value)}
+                      placeholder={displayEmail}
+                      className="w-full rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleEmailSave}
+                      className="rounded-full bg-rose-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-600"
+                    >
+                      {t('profile.saveEmail')}
+                    </button>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-500">
+                    {preferences.email ? preferences.email : t('profile.emailUnavailable')}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  className="text-slate-500 text-sm font-medium mt-2 sm:mt-0 cursor-not-allowed"
-                >
-                  {t('profile.actions.pending')}
-                </button>
               </div>
             </div>
           </div>
-          
-          <div className="bg-slate-900/40 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur-sm">
-             <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <Shield size={20} className="text-purple-500" />
+
+          <div className="rounded-[32px] border border-rose-100 bg-white p-6 shadow-sm">
+            <h4 className="mb-6 flex items-center gap-2 text-lg font-black text-slate-900">
+              <Shield size={20} className="text-rose-500" />
               {t('profile.securityTitle')}
             </h4>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4">
+            <p className="mb-4 text-sm leading-7 text-slate-500">
               {t('profile.securityDescription')}
             </p>
-            <div className={`p-4 rounded-xl border flex items-center justify-between ${isAuthenticated ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+            <div
+              className={`flex items-center justify-between rounded-2xl border p-4 ${
+                isAuthenticated
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
               <div className="flex items-center gap-3">
-                 <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
-                 <span className="font-medium text-sm">{t('profile.activeSession')}</span>
+                <div className={`h-2 w-2 rounded-full ${isAuthenticated ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                <span className="text-sm font-medium">{t('profile.activeSession')}</span>
               </div>
               <span className="text-xs">{isAuthenticated ? t('profile.valid') : t('profile.invalid')}</span>
             </div>

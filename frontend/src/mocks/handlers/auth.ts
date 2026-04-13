@@ -47,4 +47,30 @@ export const authHandlers = [
       },
     });
   }),
+  http.get('http://localhost:8080/api/v1/auth/profile', async ({ request }) => {
+    await delay(180);
+
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const account = MOCK_ACCOUNTS.find((item) => item.token === token);
+
+    if (!account) {
+      return HttpResponse.json(
+        { code: 401, message: '未登录', data: null },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json({
+      code: 0,
+      message: 'ok',
+      data: {
+        user_id: account.user_id,
+        phone: account.phone,
+        username: account.username,
+        role: account.role,
+        created_at: '2026-01-15T09:00:00Z',
+      },
+    });
+  }),
 ];

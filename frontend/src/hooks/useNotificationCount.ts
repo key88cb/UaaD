@@ -1,47 +1,57 @@
 import { useEffect, useState } from 'react';
-import { getUnreadNotificationCount } from '../api/endpoints';
+import { listNotifications } from '../api/endpoints';
 import { useAuth } from '../context/AuthContext';
+import { mergeNotificationReadState, subscribeNotificationState } from '../utils/notificationState';
 
 export function useNotificationCount() {
-  const { isAuthenticated } = useAuth();
-  const [count, setCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated, session } = useAuth();
+  const [state, setState] = useState(() => ({
+    count: 0,
+    isLoading: isAuthenticated,
+  }));
 
   useEffect(() => {
     let active = true;
 
     if (!isAuthenticated) {
-      setCount(0);
-      setIsLoading(false);
       return undefined;
     }
 
-    setIsLoading(true);
+    const load = () =>
+      listNotifications()
+        .then((items) => {
+          const mergedItems = mergeNotificationReadState(items, session?.userId);
 
-    getUnreadNotificationCount()
-      .then((value) => {
-        if (active) {
-          setCount(value);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCount(0);
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoading(false);
-        }
-      });
+          if (active) {
+            setState({
+              count: mergedItems.filter((item) => !item.isRead).length,
+              isLoading: false,
+            });
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setState({
+              count: 0,
+              isLoading: false,
+            });
+          }
+        });
+
+    void load();
+
+    const unsubscribe = subscribeNotificationState(session?.userId, () => {
+      void load();
+    });
 
     return () => {
       active = false;
+      unsubscribe();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, session?.userId]);
 
   return {
-    count: isAuthenticated ? count : 0,
-    isLoading,
+    count: isAuthenticated ? state.count : 0,
+    isLoading: isAuthenticated ? state.isLoading : false,
   };
 }

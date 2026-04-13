@@ -1,3 +1,5 @@
+import { AUTH_SESSION_STORAGE_KEY, LEGACY_TOKEN_STORAGE_KEY } from '../constants/auth';
+
 import axios from 'axios';
 
 const api = axios.create({
@@ -7,10 +9,27 @@ const api = axios.create({
   },
 });
 
+function readStoredToken() {
+  const serializedSession = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+
+  if (serializedSession) {
+    try {
+      const parsed = JSON.parse(serializedSession) as { token?: string };
+      if (typeof parsed.token === 'string' && parsed.token) {
+        return parsed.token;
+      }
+    } catch {
+      localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    }
+  }
+
+  return localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY);
+}
+
 // Add a request interceptor to include the JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = readStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,7 +47,8 @@ api.interceptors.response.use(
     if (error.response) {
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
-        localStorage.removeItem('token');
+        localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
         // Simple client-side redirect since this runs outside context
         if (window.location.pathname !== '/login') {
             window.location.href = '/login';

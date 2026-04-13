@@ -10,11 +10,16 @@ export default function MerchantActivityNewPage() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-3xl font-black text-white">{t('merchant.createActivity')}</h2>
-        <p className="mt-2 text-slate-300">{t('merchant.createSubtitle')}</p>
-      </div>
+    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+      <section className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_58%,#fff1eb_100%)] px-6 py-8 shadow-[0_24px_60px_-40px_rgba(225,29,72,0.28)] lg:px-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-400">UAAD</p>
+        <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
+          {t('merchant.createActivity')}
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 lg:text-base">
+          {t('merchant.createSubtitle')}
+        </p>
+      </section>
 
       <MerchantForm
         loading={loading}

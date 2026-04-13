@@ -94,7 +94,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   const animationProps = prefersReducedMotion ? {} : ENTRY_ANIMATION;
 

@@ -1,8 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
-import DashboardLayout from './layouts/DashboardLayout';
-import MerchantLayout from './layouts/MerchantLayout';
 import PublicLayout from './layouts/PublicLayout';
 import DashboardPage from './pages/Dashboard';
 import ActivitiesPage from './pages/Activities';
@@ -40,7 +38,7 @@ function App() {
               path="/app"
               element={
                 <ProtectedRoute>
-                  <DashboardLayout />
+                  <PublicLayout />
                 </ProtectedRoute>
               }
             >
@@ -57,7 +55,7 @@ function App() {
               path="/merchant"
               element={
                 <ProtectedRoute>
-                  <MerchantLayout />
+                  <PublicLayout />
                 </ProtectedRoute>
               }
             >

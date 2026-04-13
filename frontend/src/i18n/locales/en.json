@@ -15,6 +15,7 @@
     "welcome": "Welcome Back",
     "enterCredentials": "Enter your credentials to access UAAD",
     "startExperience": "Start your premium activity experience",
+    "backHome": "Back Home",
     "success": "Registration Successful!",
     "redirecting": "Redirecting to login...",
     "errorMsg": "Login failed. Please check your credentials."
@@ -203,11 +204,15 @@
       "UNREAD": "Unread",
       "READ": "Read"
     },
+    "markAllRead": "Mark all as read",
+    "viewDetails": "View details",
+    "markRead": "Mark as read",
+    "closeDetails": "Close details",
     "pendingReadAction": "Read API pending",
     "readOnly": "Read"
   },
   "profile": {
-    "subtitle": "Review your current account details and session status.",
+    "subtitle": "Review your account details, avatar, and session status.",
     "loading": "Loading profile...",
     "loadError": "Profile data is temporarily unavailable. Please try again later.",
     "unavailable": "Unavailable",
@@ -215,14 +220,23 @@
     "displayName": "Display name",
     "phone": "Registered phone",
     "email": "Email address",
-    "emailUnavailable": "The current API does not provide email information yet.",
+    "saveEmail": "Save email",
+    "uploadAvatar": "Upload avatar",
+    "removeAvatar": "Remove avatar",
+    "avatarSaved": "Avatar updated.",
+    "avatarRemoved": "Avatar removed.",
+    "emailSaved": "Email saved on this device.",
+    "invalidEmail": "Please enter a valid email address.",
+    "identityTitle": "Identity details",
+    "emailUnavailable": "No email saved yet. You can store one on this device here.",
     "securityTitle": "Security status",
-    "securityDescription": "This page now reads live account profile data. Editing and email binding will follow when the corresponding APIs are ready.",
+    "securityDescription": "This page reads your account profile and lets you store an avatar and email on this device.",
     "activeSession": "Active session",
     "valid": "Valid",
     "invalid": "Invalid",
     "actions": {
-      "pending": "Pending"
+      "pending": "Pending",
+      "readOnly": "Read only"
     },
     "roles": {
       "USER": "Standard account",
@@ -277,7 +291,27 @@
     }
   },
   "settings": {
-    "currentLang": "System language"
+    "currentLang": "System language",
+    "notificationsTitle": "Notification preferences",
+    "notificationsDescription": "Choose which channels should keep activity reminders enabled.",
+    "emailNotifications": "Email alerts",
+    "emailNotificationsHint": "Keep your email reminder preference on this device.",
+    "smsNotifications": "SMS alerts",
+    "smsNotificationsHint": "Keep your SMS reminder preference on this device.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "languageTitle": "Language",
+    "languageDescription": "Switch the site language and apply it immediately.",
+    "languageChinese": "Simplified Chinese",
+    "languageEnglish": "English",
+    "discoveryTitle": "Discovery preferences",
+    "discoveryDescription": "Set the default city used by the activity plaza.",
+    "preferredCity": "Preferred city",
+    "accountTitle": "Account and session",
+    "accountDescription": "Manage local personalization and how you leave the current session.",
+    "currentAccount": "Current account",
+    "resetPersonalization": "Reset local personalization",
+    "logoutToHome": "Logout to home"
   },
   "footer": {
     "brandDescription": "A unified layer for shows, sports, exhibitions, and city experiences so users can find the next live event faster.",

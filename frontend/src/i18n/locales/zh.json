@@ -15,6 +15,7 @@
     "welcome": "欢迎回来",
     "enterCredentials": "请输入您的凭据以访问 UAAD",
     "startExperience": "开启您的顶级活动体验",
+    "backHome": "返回首页",
     "success": "注册成功！",
     "redirecting": "正在跳转到登录页...",
     "errorMsg": "登录失败，请检查您的凭据。"
@@ -203,11 +204,15 @@
       "UNREAD": "未读",
       "READ": "已读"
     },
+    "markAllRead": "全部已读",
+    "viewDetails": "查看详情",
+    "markRead": "标记已读",
+    "closeDetails": "关闭详情",
     "pendingReadAction": "已读接口待接入",
     "readOnly": "已读"
   },
   "profile": {
-    "subtitle": "查看当前账户资料与基础安全状态。",
+    "subtitle": "查看当前账户资料、头像与基础安全状态。",
     "loading": "正在加载资料...",
     "loadError": "个人资料暂时加载失败，请稍后重试。",
     "unavailable": "暂不可用",
@@ -215,14 +220,23 @@
     "displayName": "显示名称",
     "phone": "注册手机号",
     "email": "邮箱地址",
-    "emailUnavailable": "当前接口暂未提供邮箱信息",
+    "saveEmail": "保存邮箱",
+    "uploadAvatar": "上传头像",
+    "removeAvatar": "移除头像",
+    "avatarSaved": "头像已更新。",
+    "avatarRemoved": "头像已移除。",
+    "emailSaved": "邮箱已保存到当前设备。",
+    "invalidEmail": "请输入有效的邮箱地址。",
+    "identityTitle": "身份资料",
+    "emailUnavailable": "尚未设置邮箱，可在此保存常用邮箱。",
     "securityTitle": "安全状态",
-    "securityDescription": "当前页面已接入真实账户资料读取，资料编辑与邮箱绑定将在后续接口开放后补齐。",
+    "securityDescription": "当前页面会读取账户资料，并支持在当前设备保存头像与邮箱。",
     "activeSession": "当前会话",
     "valid": "有效",
     "invalid": "失效",
     "actions": {
-      "pending": "待开放"
+      "pending": "待开放",
+      "readOnly": "只读"
     },
     "roles": {
       "USER": "普通用户",
@@ -277,7 +291,27 @@
     }
   },
   "settings": {
-    "currentLang": "系统语言"
+    "currentLang": "系统语言",
+    "notificationsTitle": "通知偏好",
+    "notificationsDescription": "控制你希望通过哪些渠道接收活动提醒。",
+    "emailNotifications": "邮件提醒",
+    "emailNotificationsHint": "开启后将保留邮件通知偏好。",
+    "smsNotifications": "短信提醒",
+    "smsNotificationsHint": "开启后将保留短信通知偏好。",
+    "enabled": "已开启",
+    "disabled": "已关闭",
+    "languageTitle": "语言设置",
+    "languageDescription": "切换站点显示语言，立即影响当前页面。",
+    "languageChinese": "简体中文",
+    "languageEnglish": "English",
+    "discoveryTitle": "浏览偏好",
+    "discoveryDescription": "设置默认城市，活动广场会沿用你的选择。",
+    "preferredCity": "默认城市",
+    "accountTitle": "账户与会话",
+    "accountDescription": "管理当前账号的本地个性化资料与退出行为。",
+    "currentAccount": "当前账号",
+    "resetPersonalization": "重置本地个性化设置",
+    "logoutToHome": "退出并返回首页"
   },
   "footer": {
     "brandDescription": "统一聚合演出、赛事、展览与城市活动，帮助用户更快找到下一场值得出发的现场。",

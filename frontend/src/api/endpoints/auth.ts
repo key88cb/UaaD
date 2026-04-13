@@ -1,5 +1,5 @@
 import api from '../axios';
-import type { UserProfile } from '../../types';
+import { normalizeUserRole, type UserProfile, type UserRole } from '../../types';
 
 interface BackendPayload<T> {
   code: number;
@@ -16,7 +16,7 @@ export interface LoginResponse {
   token: string;
   expires_at: string;
   user_id: number;
-  role: string;
+  role: UserRole;
   username: string;
 }
 
@@ -42,7 +42,12 @@ interface UserProfilePayload {
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
   const response = await api.post<BackendPayload<LoginResponse>>('/auth/login', payload);
-  return response.data.data;
+  const data = response.data.data;
+
+  return {
+    ...data,
+    role: normalizeUserRole(data.role),
+  };
 }
 
 export async function register(payload: RegisterRequest): Promise<RegisterResponse> {
@@ -58,7 +63,7 @@ export async function getProfile(): Promise<UserProfile> {
     userId: profile.user_id,
     phone: profile.phone,
     username: profile.username,
-    role: profile.role,
+    role: normalizeUserRole(profile.role),
     createdAt: profile.created_at,
   };
 }
