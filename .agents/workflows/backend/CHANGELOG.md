@@ -57,3 +57,56 @@ description: "后端改动总览：所有 AI Agent 对 backend/ 的变更记录"
 | 并发验证 | 100并发 stock=1 | 集成测试内 | 恰好 1 成功 |
 | Build | — | `go build ./...` | exit 0 |
 | Vet | — | `go vet ./...` | exit 0 |
+
+---
+
+## 2026-04-05 — B 组后端2 完整实现
+
+**详细文档：** [b-group.md](b-group.md)
+
+### 新增/修改文件（共 27 个文件）
+
+#### Domain 层（2 个新文件）
+- `internal/domain/notification.go` — 通知实体
+- `internal/domain/behavior.go` — 行为埋点实体
+
+#### Repository 层（3 个新文件）
+- `internal/repository/notification_repository.go` — 列表/未读/插入
+- `internal/repository/behavior_repository.go` — 单条与批量写入
+- `internal/repository/recommendation_repository.go` — 热度/协同/评分；MySQL `rank` 列反引号
+
+#### Service 层（3 个新文件）
+- `internal/service/notification_service.go` — 读接口 + `Notify*`（best-effort）
+- `internal/service/behavior_service.go` — 校验与写入（同步/异步可配）
+- `internal/service/recommendation_service.go` — 推荐策略、缓存、评分重算
+
+#### Handler 层（8 个新文件）
+- `internal/handler/notification_handler.go`、`notification_routes.go` — 通知 3 端点
+- `internal/handler/behavior_handler.go`、`behavior_routes.go` — 行为 2 端点
+- `internal/handler/recommendation_handler.go`、`recommendation_routes.go` — 推荐 2 端点（Optional JWT）
+
+#### 配置与入口（3 个修改）
+- `internal/config/config.go` — 连接池 env、`ApplyMySQLPool`、评分权重
+- `cmd/server/main.go` — 注册 B 组路由、定时重算
+- `scripts/seed/main.go` — 连接池与线上一致
+
+#### 测试（8 个新/改文件）
+- `internal/service/notification_service_test.go`、`behavior_service_test.go` — 单元
+- `internal/service/recommendation_service_test.go`、`internal/handler/recommendation_handler_test.go` — 单元
+- `tests/task_env_test.go` — 共用环境（`integration` \| `stress` \| `bgroup`）
+- `tests/bgroup_integration_test.go`、`tests/jwt_test.go`、`tests/response_contract_test.go` — 黑盒（`-tags=bgroup`）
+
+#### 配置/文档
+- `docs/SYSTEM_DESIGN.md` — §4.8 行为、§4.9 通知等
+- `docs/RECOMMENDATION_DESIGN.md`、`docs/SPRINT1.md`（若分支含）
+- `backend/walkthrough_backend.md` — 后端变更履历
+- `.agents/workflows/backend/b-group.md` — B 组全模块工作流（通知、行为、推荐、配置与测试的一站式说明）
+
+### 测试结果
+
+| 类型 | 数量 | 命令 | 结果 |
+|---|---|---|---|
+| 单元测试 | 若干 | `go test ./internal/service/ -run 'Notification|Behavior|Recommendation'`；`go test ./internal/handler/ -run 'Recommendation'` | PASS |
+| 黑盒测试 | 若干 | `go test -tags=bgroup ./tests/`（需 MySQL + seed + 服务） | PASS |
+| Build | — | `go build ./...` | exit 0 |
+| Vet | — | `go vet ./...` | exit 0 |

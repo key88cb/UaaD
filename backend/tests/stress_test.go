@@ -24,8 +24,6 @@ import (
 
 	"github.com/uaad/backend/internal/domain"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 const stressBaseURL = "http://localhost:8080/api/v1"
@@ -49,10 +47,7 @@ func stressLoginToken(b *testing.B, phone, password string) string {
 
 func stressRegisterDB(b *testing.B, phone, username, password string) {
 	b.Helper()
-	db, err := gorm.Open(sqlite.Open("../uaad.db"), &gorm.Config{})
-	if err != nil {
-		b.Fatalf("db open failed: %v", err)
-	}
+	db := openTestDB(b)
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -161,15 +156,15 @@ func TestConcurrentEnrollment_Stock10(t *testing.T) {
 
 	const concurrency = 500
 	tokens := make([]string, concurrency)
-	db, _ := gorm.Open(sqlite.Open("../uaad.db"), &gorm.Config{})
+	db := openTestDB(t)
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
 	hash, _ := bcrypt.GenerateFromPassword([]byte("test123456"), bcrypt.DefaultCost)
 	for i := 0; i < concurrency; i++ {
 		phone := fmt.Sprintf("133%08d", i+1)
 		user := domain.User{Phone: phone, Username: fmt.Sprintf("s%d", i), PasswordHash: string(hash), Role: "USER"}
 		db.Where("phone = ?", phone).FirstOrCreate(&user)
 	}
-	sqlDB, _ := db.DB()
-	sqlDB.Close()
 
 	for i := 0; i < concurrency; i++ {
 		phone := fmt.Sprintf("133%08d", i+1)

@@ -85,6 +85,20 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
+func TestGone(t *testing.T) {
+	w := execHandler(func(c *gin.Context) {
+		Gone(c, "已结束")
+	})
+	if w.Code != 410 {
+		t.Errorf("status: got %d, want 410", w.Code)
+	}
+	var body map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if body["code"].(float64) != 1101 {
+		t.Errorf("code: got %v, want 1101", body["code"])
+	}
+}
+
 func TestPaginated(t *testing.T) {
 	w := execHandler(func(c *gin.Context) {
 		Paginated(c, []string{"a", "b"}, 100, 1, 20)

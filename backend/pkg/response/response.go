@@ -95,6 +95,18 @@ func Conflict(c *gin.Context, msg string) {
 	})
 }
 
+// Gone returns 410 Gone with business code 1101.
+func Gone(c *gin.Context, msg string) {
+	if msg == "" {
+		msg = "活动已过期或抢票窗口已关闭"
+	}
+	c.JSON(410, gin.H{
+		"code":    1101,
+		"message": msg,
+		"data":    nil,
+	})
+}
+
 // TooManyRequests returns a 429 response.
 func TooManyRequests(c *gin.Context) {
 	c.JSON(429, gin.H{
