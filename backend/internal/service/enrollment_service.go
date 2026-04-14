@@ -1,11 +1,16 @@
 package service
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync/atomic"
 	"time"
 
+	"github.com/segmentio/kafka-go"
 	"github.com/uaad/backend/internal/domain"
 	"github.com/uaad/backend/internal/repository"
 	"gorm.io/gorm"
@@ -18,20 +23,30 @@ var (
 	ErrEnrollNotFound    = errors.New("enrollment not found")
 )
 
-// orderSeq is used to generate unique order numbers within this process.
 var orderSeq atomic.Int64
 
-// GenerateOrderNo generates an order number in the format ORD{YYYYMMDD}{8-digit seq}.
+// GenerateOrderNo produces a collision-free order number:
+// ORD + YYYYMMDD + 14-digit monotonic nanos + 4-digit random suffix.
+// Total 29 chars, unique across process restarts and concurrent goroutines.
 func GenerateOrderNo() string {
 	seq := orderSeq.Add(1)
-	return fmt.Sprintf("ORD%s%08d", time.Now().Format("20060102"), seq)
+	now := time.Now()
+	var rnd [2]byte
+	rand.Read(rnd[:])
+	return fmt.Sprintf("ORD%s%06d%04d",
+		now.Format("20060102"),
+		(now.UnixNano()/1000)%1_000_000+seq,
+		int(rnd[0])<<8|int(rnd[1])%10000,
+	)
 }
 
-// EnrollResult holds the data returned after a successful enrollment.
+// EnrollResult holds the data returned after a successful enrollment request.
+// In async mode the enrollment is QUEUING; the Worker will finalize it.
 type EnrollResult struct {
-	EnrollmentID uint64 `json:"enrollment_id"`
-	Status       string `json:"status"`
-	OrderNo      string `json:"order_no"`
+	EnrollmentID  uint64 `json:"enrollment_id,omitempty"`
+	Status        string `json:"status"`
+	OrderNo       string `json:"order_no,omitempty"`
+	QueuePosition int64  `json:"queue_position"`
 }
 
 // EnrollmentService defines business logic for enrollments.
@@ -43,6 +58,8 @@ type EnrollmentService interface {
 
 type enrollmentService struct {
 	db           *gorm.DB
+	stockEngine  StockEngine
+	kafkaWriter  *kafka.Writer
 	enrollRepo   repository.EnrollmentRepository
 	activityRepo repository.ActivityRepository
 	orderRepo    repository.OrderRepository
@@ -51,12 +68,16 @@ type enrollmentService struct {
 // NewEnrollmentService creates a new EnrollmentService.
 func NewEnrollmentService(
 	db *gorm.DB,
+	stockEngine StockEngine,
+	kafkaWriter *kafka.Writer,
 	enrollRepo repository.EnrollmentRepository,
 	activityRepo repository.ActivityRepository,
 	orderRepo repository.OrderRepository,
 ) EnrollmentService {
 	return &enrollmentService{
 		db:           db,
+		stockEngine:  stockEngine,
+		kafkaWriter:  kafkaWriter,
 		enrollRepo:   enrollRepo,
 		activityRepo: activityRepo,
 		orderRepo:    orderRepo,
@@ -64,13 +85,7 @@ func NewEnrollmentService(
 }
 
 func (s *enrollmentService) Create(userID, activityID uint64) (*EnrollResult, error) {
-	// 1. Idempotency check
-	existing, _ := s.enrollRepo.FindByUserAndActivity(userID, activityID)
-	if existing != nil {
-		return nil, ErrAlreadyEnrolled
-	}
-
-	// 2. Check activity exists, is PUBLISHED, and enrollment window is open
+	// 1. Pre-flight: activity must exist, be published, and within enrollment window
 	activity, err := s.activityRepo.FindByID(activityID)
 	if err != nil {
 		return nil, ErrActivityNotFound
@@ -83,61 +98,52 @@ func (s *enrollmentService) Create(userID, activityID uint64) (*EnrollResult, er
 		return nil, ErrEnrollmentClosed
 	}
 
-	// 3. Transaction: deduct stock + create enrollment + create order
-	var enrollment domain.Enrollment
-	var order domain.Order
-
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		// Optimistic lock stock deduction
-		result := tx.Model(&domain.Activity{}).
-			Where("id = ? AND enroll_count < max_capacity AND status IN ?", activityID, []string{"PUBLISHED", "SELLING_OUT"}).
-			Update("enroll_count", gorm.Expr("enroll_count + 1"))
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return ErrStockInsufficient
-		}
-
-		// Create enrollment (dev phase: direct SUCCESS, QUEUING reserved)
-		enrollment = domain.Enrollment{
-			UserID:     userID,
-			ActivityID: activityID,
-			Status:     "SUCCESS",
-			EnrolledAt: now,
-		}
-		finalizedAt := now
-		enrollment.FinalizedAt = &finalizedAt
-		if err := tx.Create(&enrollment).Error; err != nil {
-			return err
-		}
-
-		// Create order
-		order = domain.Order{
-			OrderNo:      GenerateOrderNo(),
-			EnrollmentID: enrollment.ID,
-			UserID:       userID,
-			ActivityID:   activityID,
-			Amount:       activity.Price,
-			Status:       "PENDING",
-			ExpiredAt:    now.Add(15 * time.Minute),
-		}
-		if err := tx.Create(&order).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-
+	// 2. Redis Lua atomic: idempotency + stock deduction + queue number
+	ctx := context.Background()
+	queuePos, err := s.stockEngine.TryEnroll(ctx, activityID, userID)
 	if err != nil {
+		if errors.Is(err, ErrAlreadyEnrolledRedis) {
+			return nil, ErrAlreadyEnrolled
+		}
+		if errors.Is(err, ErrStockDepleted) {
+			return nil, ErrStockInsufficient
+		}
 		return nil, err
 	}
 
+	// 3. Produce to Kafka — Worker will handle MySQL persistence
+	msg := EnrollmentMessage{
+		UserID:     userID,
+		ActivityID: activityID,
+		QueuePos:   queuePos,
+		Price:      activity.Price,
+		Timestamp:  now.UnixMilli(),
+	}
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		s.rollbackRedis(ctx, activityID, userID)
+		return nil, fmt.Errorf("marshal enrollment message: %w", err)
+	}
+
+	err = s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(fmt.Sprintf("%d:%d", activityID, userID)),
+		Value: payload,
+	})
+	if err != nil {
+		s.rollbackRedis(ctx, activityID, userID)
+		return nil, fmt.Errorf("kafka produce: %w", err)
+	}
+
 	return &EnrollResult{
-		EnrollmentID: enrollment.ID,
-		Status:       enrollment.Status,
-		OrderNo:      order.OrderNo,
+		Status:        "QUEUING",
+		QueuePosition: queuePos,
 	}, nil
+}
+
+func (s *enrollmentService) rollbackRedis(ctx context.Context, activityID, userID uint64) {
+	if rbErr := s.stockEngine.Rollback(ctx, activityID, userID); rbErr != nil {
+		log.Printf("[Enrollment] CRITICAL: Redis rollback failed for activity=%d user=%d: %v", activityID, userID, rbErr)
+	}
 }
 
 func (s *enrollmentService) GetStatus(enrollmentID, userID uint64) (*domain.Enrollment, *domain.Activity, *domain.Order, error) {
@@ -151,7 +157,6 @@ func (s *enrollmentService) GetStatus(enrollmentID, userID uint64) (*domain.Enro
 
 	activity, _ := s.activityRepo.FindByID(enrollment.ActivityID)
 
-	// Find the associated order
 	var order *domain.Order
 	orders, _, _ := s.orderRepo.FindByUserID(userID, 1, 100)
 	for i := range orders {

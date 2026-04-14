@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/uaad/backend/internal/domain"
@@ -32,16 +34,19 @@ type OrderService interface {
 type orderService struct {
 	orderRepo    repository.OrderRepository
 	activityRepo repository.ActivityRepository
+	stockEngine  StockEngine
 }
 
 // NewOrderService creates a new OrderService.
 func NewOrderService(
 	orderRepo repository.OrderRepository,
 	activityRepo repository.ActivityRepository,
+	stockEngine StockEngine,
 ) OrderService {
 	return &orderService{
 		orderRepo:    orderRepo,
 		activityRepo: activityRepo,
+		stockEngine:  stockEngine,
 	}
 }
 
@@ -92,20 +97,25 @@ func (s *orderService) Pay(orderID, userID uint64) (*PayResult, error) {
 	}, nil
 }
 
-// ScanExpired finds expired PENDING orders, closes them, and rolls back stock.
+// ScanExpired finds expired PENDING orders, closes them, and rolls back stock
+// in both MySQL (audit counter) and Redis (live stock + enrolled set).
 func (s *orderService) ScanExpired() (int, error) {
 	orders, err := s.orderRepo.ListExpired()
 	if err != nil {
 		return 0, err
 	}
 
+	ctx := context.Background()
 	closed := 0
 	for _, order := range orders {
 		if err := s.orderRepo.UpdateStatus(order.ID, "CLOSED"); err != nil {
 			continue
 		}
-		// Rollback stock
 		_ = s.activityRepo.IncrementStock(order.ActivityID)
+		if err := s.stockEngine.Rollback(ctx, order.ActivityID, order.UserID); err != nil {
+			log.Printf("[OrderExpiry] Redis rollback failed for order=%d activity=%d user=%d: %v",
+				order.ID, order.ActivityID, order.UserID, err)
+		}
 		closed++
 	}
 	return closed, nil

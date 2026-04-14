@@ -15,6 +15,7 @@ export default function MerchantActivityEditPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const activityId = Number(id);
+  const isValidActivityId = Number.isFinite(activityId);
 
   const [initialValue, setInitialValue] = useState<MerchantActivityInput | null>(null);
   const [activityStatus, setActivityStatus] = useState<ActivityStatus | null>(null);

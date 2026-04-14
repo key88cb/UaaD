@@ -85,14 +85,17 @@ func stressCreateActivity(b *testing.B, merchantToken string, cap int) uint64 {
 }
 
 // =============================================================================
-// BenchmarkEnrollmentThroughput — measures how many enrollments/sec the server handles
+// BenchmarkEnrollmentThroughput — measures pure enroll throughput excluding login prep
 // =============================================================================
 func BenchmarkEnrollmentThroughput(b *testing.B) {
 	merchantToken := stressLoginToken(b, "13800000004", "test123456")
-	activityID := stressCreateActivity(b, merchantToken, 1000000) // huge stock
+	activityID := stressCreateActivity(b, merchantToken, b.N+1000)
 
-	// Pre-register users
-	const poolSize = 500
+	// Pre-register and login users outside the timed section so benchmark only measures enroll.
+	poolSize := b.N
+	if poolSize < 1 {
+		poolSize = 1
+	}
 	tokens := make([]string, poolSize)
 	for i := 0; i < poolSize; i++ {
 		phone := fmt.Sprintf("155%08d", i+1)
@@ -101,22 +104,37 @@ func BenchmarkEnrollmentThroughput(b *testing.B) {
 	}
 
 	var idx atomic.Int64
+	var total atomic.Int64
+	var accepted atomic.Int64
+
 	b.ResetTimer()
+	start := time.Now()
 	b.RunParallel(func(pb *testing.PB) {
 		client := &http.Client{}
 		for pb.Next() {
-			i := int(idx.Add(1)) % poolSize
+			i := int(idx.Add(1)-1) % poolSize
 			body, _ := json.Marshal(map[string]uint64{"activity_id": activityID})
 			req, _ := http.NewRequest("POST", stressBaseURL+"/enrollments", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", "Bearer "+tokens[i])
 			resp, err := client.Do(req)
 			if err == nil {
+				total.Add(1)
+				if resp.StatusCode == http.StatusAccepted {
+					accepted.Add(1)
+				}
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}
 		}
 	})
+	elapsed := time.Since(start)
+	b.StopTimer()
+
+	if elapsed > 0 {
+		b.ReportMetric(float64(total.Load())/elapsed.Seconds(), "req/s")
+		b.ReportMetric(float64(accepted.Load())/elapsed.Seconds(), "accepted/s")
+	}
 }
 
 // =============================================================================
@@ -180,9 +198,12 @@ func TestConcurrentEnrollment_Stock10(t *testing.T) {
 	t.Logf("准备 %d 用户", concurrency)
 
 	var success, fail atomic.Int32
+	var totalDurationNs atomic.Int64
+	var maxDurationNs atomic.Int64
 	var wg sync.WaitGroup
 	ready := make(chan struct{})
 
+	wallStart := time.Now()
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -192,7 +213,18 @@ func TestConcurrentEnrollment_Stock10(t *testing.T) {
 			req, _ := http.NewRequest("POST", stressBaseURL+"/enrollments", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", "Bearer "+tokens[idx])
+
+			begin := time.Now()
 			resp, err := http.DefaultClient.Do(req)
+			duration := time.Since(begin)
+			totalDurationNs.Add(duration.Nanoseconds())
+			for {
+				currentMax := maxDurationNs.Load()
+				if duration.Nanoseconds() <= currentMax || maxDurationNs.CompareAndSwap(currentMax, duration.Nanoseconds()) {
+					break
+				}
+			}
+
 			if err != nil {
 				fail.Add(1)
 				return
@@ -212,8 +244,15 @@ func TestConcurrentEnrollment_Stock10(t *testing.T) {
 
 	close(ready)
 	wg.Wait()
+	wallElapsed := time.Since(wallStart)
 
 	s := success.Load()
+	avgDuration := time.Duration(totalDurationNs.Load() / concurrency)
+	maxDuration := time.Duration(maxDurationNs.Load())
+	throughput := float64(concurrency) / wallElapsed.Seconds()
+
+	t.Logf("enroll 实际耗时: avg=%s, max=%s, wall=%s", avgDuration, maxDuration, wallElapsed)
+	t.Logf("当前吞吐量: %.2f enroll requests/sec", throughput)
 	t.Logf("结果: 成功=%d, 失败=%d (stock=10, 并发=%d)", s, fail.Load(), concurrency)
 	if s > 10 {
 		t.Errorf("❌ 超卖! stock=10 但 %d 成功", s)
