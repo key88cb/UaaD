@@ -24,7 +24,7 @@ export default function MerchantActivityEditPage() {
   const [loadError, setLoadError] = useState('');
 
   const loadActivity = useCallback(async () => {
-    if (!Number.isFinite(activityId)) {
+    if (!isValidActivityId) {
       setLoadError(t('merchant.invalidIdDescription'));
       setLoading(false);
       return;
@@ -59,7 +59,7 @@ export default function MerchantActivityEditPage() {
     } finally {
       setLoading(false);
     }
-  }, [activityId, t]);
+  }, [activityId, isValidActivityId, t]);
 
   useEffect(() => {
     void loadActivity();
@@ -84,12 +84,12 @@ export default function MerchantActivityEditPage() {
         <MerchantStateCard
           tone="error"
           title={
-            Number.isFinite(activityId) ? t('merchant.editLoadFailedTitle') : t('merchant.invalidIdTitle')
+            isValidActivityId ? t('merchant.editLoadFailedTitle') : t('merchant.invalidIdTitle')
           }
           description={loadError}
           action={
             <div className="flex flex-wrap justify-center gap-3">
-              {Number.isFinite(activityId) ? (
+              {isValidActivityId ? (
                 <button
                   type="button"
                   onClick={() => void loadActivity()}
