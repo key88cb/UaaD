@@ -192,7 +192,9 @@
   },
   "notifications": {
     "subtitle": "集中查看报名提醒、支付提醒与活动动态。",
-    "empty": "暂时没有新的通知。"
+    "empty": "暂时没有新的通知。",
+    "loadMore": "加载更多",
+    "tapToMarkRead": "点击标记为已读"
   },
   "common": {
     "previous": "上一张",

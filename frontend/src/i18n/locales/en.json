@@ -192,7 +192,9 @@
   },
   "notifications": {
     "subtitle": "Review enrollment updates, payment reminders, and activity alerts in one place.",
-    "empty": "No new notifications right now."
+    "empty": "No new notifications right now.",
+    "loadMore": "Load more",
+    "tapToMarkRead": "Tap to mark as read"
   },
   "common": {
     "previous": "Previous slide",

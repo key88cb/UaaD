@@ -1,4 +1,33 @@
 import axios from 'axios';
+import { AUTH_LOGOUT_EVENT } from '../constants/authEvents';
+
+interface BackendEnvelope {
+  code?: number;
+  message?: string;
+  data?: unknown;
+}
+
+export interface ApiBusinessError extends Error {
+  code: number;
+  data?: unknown;
+  isBusinessError: true;
+  response: {
+    status: number;
+    data: BackendEnvelope;
+  };
+}
+
+function createBusinessError(status: number, payload: BackendEnvelope): ApiBusinessError {
+  const error = new Error(payload.message || '业务请求失败') as ApiBusinessError;
+  error.code = payload.code || -1;
+  error.data = payload.data;
+  error.isBusinessError = true;
+  error.response = {
+    status,
+    data: payload,
+  };
+  return error;
+}
 
 const api = axios.create({
   baseURL: 'http://localhost:8080/api/v1',
@@ -23,16 +52,19 @@ api.interceptors.request.use(
 
 // Add a global response interceptor for unified error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const payload = response.data as BackendEnvelope;
+    if (response.status === 200 && payload?.code === 1101) {
+      return Promise.reject(createBusinessError(response.status, payload));
+    }
+    return response;
+  },
   (error) => {
     if (error.response) {
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
         localStorage.removeItem('token');
-        // Simple client-side redirect since this runs outside context
-        if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-        }
+        window.dispatchEvent(new CustomEvent(AUTH_LOGOUT_EVENT));
       }
       
       // Could also add more global catches for 403, 500, etc. here

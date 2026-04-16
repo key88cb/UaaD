@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { listMerchantActivities, publishMerchantActivity } from '../api/endpoints';
 import type { ActivityListItem } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { getRequestErrorMessage } from '../utils/requestErrorMessage';
 
 export default function MerchantActivitiesPage() {
   const { t } = useTranslation();
@@ -12,21 +13,47 @@ export default function MerchantActivitiesPage() {
   const [items, setItems] = useState<ActivityListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishingId, setPublishingId] = useState<number | null>(null);
+  const [listError, setListError] = useState('');
+  const [publishError, setPublishError] = useState('');
   const banner = useMemo(() => (location.state as { message?: string } | null)?.message ?? '', [location.state]);
 
-  const fetchItems = () =>
-    listMerchantActivities()
-      .then(setItems)
-      .finally(() => setLoading(false));
-
-  const load = () => {
-    setLoading(true);
-    void fetchItems();
-  };
-
   useEffect(() => {
-    void fetchItems();
+    let cancelled = false;
+    setListError('');
+    listMerchantActivities()
+      .then((data) => {
+        if (!cancelled) {
+          setItems(data);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setListError(getRequestErrorMessage(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const reloadList = async () => {
+    setLoading(true);
+    setListError('');
+    try {
+      const data = await listMerchantActivities();
+      setItems(data);
+    } catch (err) {
+      setListError(getRequestErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const canPublish = (status: ActivityListItem['status']) => status === 'DRAFT' || status === 'PREHEAT';
 
@@ -49,6 +76,18 @@ export default function MerchantActivitiesPage() {
       {banner ? (
         <div className="rounded-xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
           {banner}
+        </div>
+      ) : null}
+
+      {listError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {listError}
+        </div>
+      ) : null}
+
+      {publishError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {publishError}
         </div>
       ) : null}
 
@@ -99,10 +138,16 @@ export default function MerchantActivitiesPage() {
                         type="button"
                         disabled={!canPublish(item.status) || publishingId === item.id}
                         onClick={async () => {
+                          setPublishError('');
                           setPublishingId(item.id);
-                          await publishMerchantActivity(item.id).catch(() => undefined);
-                          setPublishingId(null);
-                          load();
+                          try {
+                            await publishMerchantActivity(item.id);
+                            await reloadList();
+                          } catch (err) {
+                            setPublishError(getRequestErrorMessage(err));
+                          } finally {
+                            setPublishingId(null);
+                          }
                         }}
                         className="inline-flex items-center gap-1 rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
