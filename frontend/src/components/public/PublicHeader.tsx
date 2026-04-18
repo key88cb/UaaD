@@ -145,8 +145,8 @@ export function PublicHeader({
     setNotificationState('loading');
 
     try {
-      const items = await listNotifications();
-      setNotificationItems(mergeNotificationReadState(items, session?.userId));
+      const result = await listNotifications();
+      setNotificationItems(mergeNotificationReadState(result.list, session?.userId));
       setNotificationState('ready');
     } catch {
       setNotificationItems([]);

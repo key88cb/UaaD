@@ -7,7 +7,9 @@ import { formatLongDate } from '../../utils/formatters';
 type SpotlightItem = RecommendationSectionItem | HomeSpotlightItem;
 
 function getCoverUrl(item: SpotlightItem): string | undefined {
-  return 'coverUrl' in item ? (item as RecommendationSectionItem).coverUrl : (item as HomeSpotlightItem).imageUrl ?? undefined;
+  return 'coverUrl' in item
+    ? (item as RecommendationSectionItem).coverUrl ?? undefined
+    : (item as HomeSpotlightItem).imageUrl ?? undefined;
 }
 
 function getEnrollOpenAt(item: SpotlightItem): string {
@@ -20,6 +22,10 @@ function getDescription(item: SpotlightItem): string {
     return ri.recommendReason ?? ri.description;
   }
   return (item as HomeSpotlightItem).summary;
+}
+
+function getHref(item: SpotlightItem): string {
+  return 'href' in item ? item.href : `/activity/${item.id}`;
 }
 
 interface SpotlightActivityProps {
@@ -89,7 +95,7 @@ export function SpotlightActivity({ item, mirrored = false }: SpotlightActivityP
 
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
-                to={item.href ?? `/activity/${item.id}`}
+                to={getHref(item)}
                 className="rounded-full bg-rose-600 px-6 py-2.5 text-sm font-bold !text-white shadow-[0_18px_36px_-22px_rgba(244,63,94,0.9)] transition hover:bg-rose-700 hover:!text-white visited:!text-white"
                 style={{ color: '#ffffff' }}
               >

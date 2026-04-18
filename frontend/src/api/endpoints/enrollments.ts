@@ -75,6 +75,8 @@ export async function createEnrollment(activityId: number): Promise<CreateEnroll
 
   const data = response.data.data;
   return {
+    code: response.data.code,
+    message: response.data.message,
     status: data.status,
     queuePosition: data.queue_position,
     enrollmentId: data.enrollment_id,

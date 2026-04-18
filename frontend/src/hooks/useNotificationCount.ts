@@ -19,8 +19,8 @@ export function useNotificationCount() {
 
     const load = () =>
       listNotifications()
-        .then((items) => {
-          const mergedItems = mergeNotificationReadState(items, session?.userId);
+        .then((result) => {
+          const mergedItems = mergeNotificationReadState(result.list, session?.userId);
 
           if (active) {
             setState({

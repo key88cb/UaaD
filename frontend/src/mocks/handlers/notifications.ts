@@ -53,7 +53,7 @@ export const notificationHandlers = [
     const target = MOCK_NOTIFICATIONS.find((item) => item.id === targetId);
 
     if (target) {
-      target.isRead = true;
+      target.is_read = true;
     }
 
     return HttpResponse.json({

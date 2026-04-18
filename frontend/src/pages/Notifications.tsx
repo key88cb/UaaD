@@ -41,9 +41,9 @@ export default function NotificationsPage() {
     let active = true;
 
     listNotifications()
-      .then((data) => {
+      .then((result) => {
         if (active) {
-          setItems(mergeNotificationReadState(data, session?.userId));
+          setItems(mergeNotificationReadState(result.list, session?.userId));
           setError('');
         }
       })
