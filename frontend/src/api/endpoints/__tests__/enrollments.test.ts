@@ -31,10 +31,14 @@ describe('enrollments endpoints', () => {
     });
 
     await expect(createEnrollment(12)).resolves.toEqual({
+      code: 1201,
+      message: '已进入排队队列，请等待结果',
       status: 'QUEUING',
       queuePosition: 18,
       enrollmentId: 345,
       orderNo: 'ORD202604130001',
+      estimatedWaitSeconds: undefined,
+      stockRemaining: undefined,
     });
   });
 
