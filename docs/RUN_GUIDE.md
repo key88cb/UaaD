@@ -6,21 +6,41 @@
 
 请确保您的开发本机已完成下述环境及版本安装：
 
-- **Docker & Docker Compose**（用于剥离 MySQL / Redis / Kafka 的本地安装运维）
+- **Docker & Docker Compose**（用于 MySQL / Redis / Kafka / Prometheus / Grafana）
 - **Go (1.20+)** （保证 Go Modules 代理畅通可用）
-- **Node.js (18+) & Cnpm/Npm**
+- **Node.js (18+) & pnpm/npm**
+- **JMeter (5.6+)**（仅压测需要；`brew install jmeter` 或 [官网下载](https://jmeter.apache.org/)）
 
 ---
 
-## 2. 拉起基础数据容器（中间件基座）
+## 2. 环境配置态说明
 
-当前项目的底层物理基座被封装在主目录下的容器配置中。每次开发前，请优先保证其运行：
+项目支持三种运行态，按需拉起对应服务：
+
+| 运行态 | Docker 服务 | 说明 |
+|--------|-------------|------|
+| **开发态** | MySQL + Redis + Kafka | 最小依赖，后端开发与调试 |
+| **联调态** | MySQL + Redis + Kafka + 前端 | 前后端联调，需同时启动前端 `pnpm dev` |
+| **演示态 / 压测态** | MySQL + Redis + Kafka + Prometheus + Grafana | 完整监控栈，支持压测观测与演示 |
+
+`docker-compose.yaml` 已包含全部五个服务，`docker-compose up -d` 将一次性拉起。若仅需开发态，可选择性启动：
 
 ```bash
-# 在项目根目录下执行
+docker-compose up -d mysql redis kafka
+```
+
+---
+
+## 3. 拉起基础数据容器（中间件基座）
+
+```bash
+# 在项目根目录下执行（拉起全部服务，含 Prometheus / Grafana）
 docker-compose up -d
 
-# 可以通过查看日志来确保 MySQL 等服务已成功 Initialized
+# 查看容器状态（确认 mysql / redis 为 healthy）
+docker-compose ps
+
+# 查看日志
 docker-compose logs -f
 ```
 
@@ -28,52 +48,102 @@ docker-compose logs -f
 
 ---
 
-## 3. 启动 Go 后端核心服务
+## 4. 启动 Go 后端核心服务
 
 后端服务实现了 DDL 自动映射（AutoMigrate），因此无需手动向 DB 导入初始 SQL 脚本。
 
 ```bash
-# 1. 切换至后台工作域
 cd backend
-
-# 2. 检查并整理第三方依赖包
 go mod tidy
-
-# 3. 直启后端 HTTP 服务（默认将监听在 8080 端口）
-go run ./cmd/server/main.go
+go run ./cmd/server
 ```
 
-**[可选操作] 测试数据预热：**
-如果您是第一次启动刚建好空表，可以新开一个终端用于向数据库灌入预设的商户、Mock 活动以及测试用户：
+后端默认监听 `:8080`（可通过 `backend/.env` 中的 `PORT` 变量覆盖）。
+
+**测试数据预热（首次或清库后必须执行）：**
 
 ```bash
 cd backend
-go run ./scripts/seed/main.go
+go run ./scripts/seed
 ```
+
+Seed 会导入 5 个用户（含商户 `13800000004`）和 20 个活动。
 
 ---
 
-## 4. 启动基于 Vite 的前端工程
-
-前端在启动前会自动接管到 `localhost:8080` 的后端层，或者采用内建的 MSW Mock数据层。
+## 5. 启动基于 Vite 的前端工程
 
 ```bash
-# 1. 切换至大前端工作域
 cd frontend
-
-# 2. 首次安装/有新依赖更新时安装 Node 模组
-npm install
-
-# 3. 开启带有 HMR 级别的调试热加载
-npm run dev
+pnpm install
+pnpm dev
 ```
 
-成功拉起后，点击控制台输出的回显地址（通常位于 `http://localhost:5173`）并用浏览器打开。
+成功拉起后，访问 `http://localhost:5173`。
+
+**联调注意事项：**
+- 确保 `.env` 或 `.env.local` 中 `VITE_USE_MOCK` **不为** `true`（联调态需关闭 Mock）。
+- 前端请求默认指向 `http://localhost:8080`。
 
 ---
 
-## 5. 高级排查与联调诊断建议
+## 6. Prometheus 与 Grafana（监控栈）
 
-- **后端接口拒绝 (CORS/401)**：确认您在登录页输入的信息无误，获取到的 Token 已成功固化到了 `AuthContext` 和 LocalStorage 内；验证 `src/api/axios.ts` 内的 BaseURL 是否正确拦截了您的出站请求。
-- **启动报错 (端口占用)**：如果因上次进程异常未死导致端口抢占（如 8080 错误），Windows 用户可使用 `netstat -ano | findstr 8080` 抓出 PID 后强行 `taskkill /F /PID XXXX` 关闭该进程。
+### 6.1 启动
+
+随 `docker-compose up -d` 一起启动，无需额外操作。
+
+| 服务 | 地址 | 默认账号 |
+|------|------|---------|
+| Prometheus | `http://localhost:9090` | 无需登录 |
+| Grafana | `http://localhost:3000` | admin / admin |
+
+### 6.2 数据源与 Dashboard
+
+- **数据源**：已通过 provisioning 自动配置 Prometheus（`http://prometheus:9090`），无需手动添加。
+- **Dashboard**：已通过 provisioning 自动加载 `UAAD / Sprint3 / Enrollment & Worker` 面板（uid: `uaad-sprint3`），启动后即可在 Grafana 中查看。
+
+### 6.3 后端指标
+
+后端暴露 `/metrics` 端点（`http://localhost:8080/metrics`），Prometheus 每 15s 自动拉取。详见 [Prometheus_And_Grafna.md](./Prometheus_And_Grafna.md)。
+
+---
+
+## 7. 压力测试
+
+### 7.1 前置条件
+
+确保 Docker 全栈、后端、Seed 均已就绪（步骤 3-4）。
+
+### 7.2 一键执行
+
+```bash
+cd backend/tests/jmeter
+bash run-jmeter-report.sh
+```
+
+脚本自动完成：商户登录 → 创建活动 → 发布（Redis 预热）→ 生成用户 CSV → 运行 JMeter → 输出 HTML 报告。
+
+### 7.3 切换并发规模
+
+编辑 `enrollment-load.jmx`，启用目标线程组并禁用其余（同时只启用一个）：
+
+| 线程组 | 线程数 | Ramp-up | 默认状态 |
+|--------|--------|---------|---------|
+| 峰值 1000 并发 | 1000 | 30s | **启用** |
+| Sprint3 大规模 3000 并发 | 3000 | 60s | 禁用 |
+| Sprint3 冲刺目标 5000 并发 | 5000 | 90s | 禁用 |
+
+### 7.4 压测报告
+
+详见 [ST_BASELINE.md](./STREE_TEST/ST_BASELINE.md) 与 [ST_REPORT.md](./STREE_TEST/ST_REPORT.md)。
+
+---
+
+## 8. 高级排查与联调诊断建议
+
+- **后端接口拒绝 (CORS/401)**：确认登录页输入信息无误，Token 已固化到 `AuthContext` 和 LocalStorage；验证 `src/api/axios.ts` 内的 BaseURL。
+- **启动报错 (端口占用)**：`lsof -i :8080` 查找占用进程并 `kill`；Windows: `netstat -ano | findstr 8080` + `taskkill /F /PID <PID>`。
+- **Prometheus 无数据**：确认后端已启动且 `curl http://localhost:8080/metrics` 有输出；检查 `docker-compose logs prometheus`。
+- **Grafana Dashboard 为空**：确认 Prometheus 数据源连通（Data sources → Prometheus → Save & test）；Dashboard 使用 `uid: prometheus` 引用数据源。
 

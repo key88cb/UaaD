@@ -42,7 +42,7 @@
 | 文件 | 用途 |
 |---|---|
 | [RUN_GUIDE.md](./RUN_GUIDE.md) | 本地拉起前后端与依赖服务 |
-| [STRESS_TEST.md](./STRESS_TEST.md) | 压测说明 |
+| [ST_BASELINE.md](./STREE_TEST/ST_BASELINE.md) | 压测说明 |
 | [Prometheus_And_Grafna.md](./Prometheus_And_Grafna.md) | 监控与可观测配置说明 |
 | [walkthrough.md](./walkthrough.md) | 最近一轮联调、修复与验证记录 |
 | [../backend/tests/jmeter/ACCEPTANCE_CHECKLIST.md](../backend/tests/jmeter/ACCEPTANCE_CHECKLIST.md) | 压测验收检查项 |

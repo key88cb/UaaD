@@ -16,10 +16,10 @@ import (
 // EnrollmentWorker consumes enrollment messages from Kafka and persists
 // them to MySQL. On transaction failure it compensates Redis via StockEngine.
 type EnrollmentWorker struct {
-	reader      *kafka.Reader
-	db          *gorm.DB
-	stockEngine service.StockEngine
-	notifSvc    service.NotificationService
+	reader       *kafka.Reader
+	db           *gorm.DB
+	stockEngine  service.StockEngine
+	notifSvc     service.NotificationService
 	activityRepo interface {
 		FindByID(id uint64) (*domain.Activity, error)
 	}
@@ -31,7 +31,9 @@ func NewEnrollmentWorker(
 	db *gorm.DB,
 	stockEngine service.StockEngine,
 	notifSvc service.NotificationService,
-	activityRepo interface{ FindByID(id uint64) (*domain.Activity, error) },
+	activityRepo interface {
+		FindByID(id uint64) (*domain.Activity, error)
+	},
 ) *EnrollmentWorker {
 	return &EnrollmentWorker{
 		reader:       reader,

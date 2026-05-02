@@ -90,6 +90,47 @@
 ### 验证结果
 - 文档与 JMeter XML、shell 脚本为静态交付；**需在本地安装 JMeter 且拉起全栈后** 执行 `bash run-jmeter-report.sh` 做运行时验证。
 
+## 2026-05-02 · 压力测试集成 CI 管线
+
+### 变更概览
+- **`.github/workflows/ci.yml`**（修改）：新增 `stress-test` Job，在 `backend` Job 通过后自动执行集成测试与压力测试。
+  - 使用 GitHub Actions `services` 拉起 MySQL 8.0（`tmpfs` 加速）、Redis 7-alpine、Kafka 3.7.0（KRaft 单节点）。
+  - 通过环境变量 `DB_HOST`/`REDIS_HOST`/`KAFKA_BROKER` 对接后端 `config.Load()` 逻辑。
+  - 流程：编译后端 → 启动 server → seed → 执行 `integration` 标签测试（并发抢票 stock=1、报名幂等、库存不足、权限校验、支付流程）→ 执行 `stress` 标签测试（500 goroutine 抢 10 张票零超卖验证、吞吐量基准测试）→ 清理 server 进程。
+
+### Diff 思路
+- Job `needs: backend` 确保编译与 vet 通过后再跑重量级集成。
+- MySQL 使用 `--tmpfs=/var/lib/mysql` 避免 CI 磁盘瓶颈。
+- server 启动后轮询 `/metrics` 端点确认就绪，最多等待 30 秒。
+- `if: always()` 确保 server 进程清理不受测试结果影响。
+
+### 验证结果
+- YAML 语法检查通过。
+
+## 2026-05-02 · Sprint3 大规模压力测试执行与文档固化
+
+### 变更概览
+- **压力测试执行**：依次完成 1000 / 3000 / 5000 三轮并发压测，被压接口为 `POST /api/v1/enrollments`。
+  - 1000 并发：100% 成功率，P95=11ms，P99=39ms，0 个 5xx。
+  - 3000 并发：100% 成功率，P95=11ms，P99=23ms，0 个 5xx。
+  - 5000 并发（实际 4061）：100% 成功率，P95=11ms，P99=26ms，0 个 5xx；JMeter JVM 线程上限为客户端侧瓶颈。
+- **数据一致性验证**：三轮压测后 Redis 库存均 >= 0，MySQL 无超卖、无重复成功报名。
+- **`docs/STRESS_TEST_REPORT.md`**（新增）：Sprint 3 大规模压力测试正式报告，含环境配置、三轮结果对比、库存一致性验证、5000 并发瓶颈分析与降级方案、Grafana 监控观测指南。
+- **`backend/tests/jmeter/enrollment-load.jmx`**（修改）：新增默认禁用的「Sprint3 冲刺目标 5000 并发」线程组（Ramp 90s），三档线程组（1000 / 3000 / 5000）齐备。
+- **`docs/STRESS_TEST.md`**（修改）：补充 5000 并发线程组说明、macOS 线程限制已知问题、报告引用链接、能力边界说明（已具备 vs 未覆盖）。
+- **`docs/RUN_GUIDE.md`**（重写）：补充三态运行说明（开发态 / 联调态 / 演示态）、Prometheus / Grafana 启动与配置、JMeter 压测执行指南、新增排查建议。
+- **`backend/tests/jmeter/ACCEPTANCE_CHECKLIST.md`**（修改）：§7.1 跑前检查项全部勾选，新增 §7.5 Sprint 3 压测基线结果表与 5000 并发瓶颈说明。
+
+### Diff 思路
+- 先执行压测获取真实数据，再回填文档和报告，确保所有数字有 JTL / Redis / MySQL 交叉验证。
+- JMX 中三个线程组互斥启用，`run-jmeter-report.sh` 自动解析启用的线程组数量生成对应行数的 CSV，无需手工同步。
+- 5000 并发未完全达到，如实记录瓶颈原因（客户端 JVM 线程限制）与降级方案，符合 SPRINT3.md 对「若未达到冲刺目标须说明限制条件」的要求。
+
+### 验证结果
+- 三轮压测 JTL 与 HTML 报告已生成（`backend/tests/jmeter/out/`，gitignored）。
+- Redis / MySQL 一致性检查通过。
+- 文档交叉引用链路完整：`SPRINT3.md` → `STRESS_TEST.md` → `STRESS_TEST_REPORT.md` → `ACCEPTANCE_CHECKLIST.md`。
+
 ## 2026-05-02 · Sprint3 Grafana 监控栈基础设施代码化
 
 ### 变更概览
