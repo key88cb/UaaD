@@ -17,20 +17,20 @@ import (
 // ── Stub EnrollmentService ──────────────────────────────────────────────────
 
 type stubEnrollmentService struct {
-	createResult      *service.EnrollResult
-	createErr         error
-	statusEnrollment  *domain.Enrollment
-	statusActivity    *domain.Activity
-	statusOrder       *domain.Order
-	statusErr         error
-	listResult        []domain.Enrollment
-	listTotal         int64
-	listErr           error
-	lastUserID        uint64
-	lastActivityID    uint64
-	lastEnrollmentID  uint64
-	lastPage          int
-	lastPageSize      int
+	createResult     *service.EnrollResult
+	createErr        error
+	statusEnrollment *domain.Enrollment
+	statusActivity   *domain.Activity
+	statusOrder      *domain.Order
+	statusErr        error
+	listResult       []domain.Enrollment
+	listTotal        int64
+	listErr          error
+	lastUserID       uint64
+	lastActivityID   uint64
+	lastEnrollmentID uint64
+	lastPage         int
+	lastPageSize     int
 }
 
 func (s *stubEnrollmentService) Create(userID, activityID uint64) (*service.EnrollResult, error) {
